@@ -1,0 +1,1053 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Gamepad2, Star, Flame, CheckCircle, XCircle, ArrowRight, Lock, Trophy } from 'lucide-react';
+import { generateQuestion, detectMisconception, getWordProblem, Question, MisconceptionResult } from '../lib/misconceptionDetection';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { Fraction } from './Fraction';
+import confetti from 'canvas-confetti';
+
+interface PracticeModeProps {
+  onComplete: (sessionId: string) => void;
+}
+
+interface AnswerRecord {
+  question: Question;
+  studentAnswer: { numerator: number; denominator: number } | null;
+  isCorrect: boolean;
+  misconception: MisconceptionResult;
+  questionNum: number;
+}
+
+type Difficulty = 'beginner' | 'intermediate' | 'advanced';
+
+// Per-level static config used only in the menu UI
+const LEVEL_CONFIG = {
+  beginner: {
+    label: 'Beginner Island',
+    questions: 5,
+    pointsPerQ: 10,
+    lines: ['Easy fractions with small numbers', 'Build your basics!'],
+    unlockNeed: 0,
+    unlockFrom: null as string | null,
+    nextUnlockPoints: 40,
+    nextUnlockName: 'Intermediate Mountain',
+    cardBg: 'bg-gradient-to-br from-green-50 to-emerald-50',
+    border: 'border-green-200',
+    titleColor: 'text-green-700',
+    pointsColor: 'text-green-600',
+    mapFrom: 'from-cyan-300',
+    mapVia: 'via-teal-300',
+    mapTo: 'to-green-400',
+    nodeActive: 'bg-green-500 border-green-600',
+    image: 'https://images.pexels.com/photos/1024993/pexels-photo-1024993.jpeg?auto=compress&cs=tinysrgb&w=140&h=140&fit=crop',
+  },
+  intermediate: {
+    label: 'Intermediate Mountain',
+    questions: 10,
+    pointsPerQ: 15,
+    lines: ['More challenging fractions', 'Simplify and multiply!'],
+    unlockNeed: 40,
+    unlockFrom: 'Beginner Island',
+    nextUnlockPoints: 60,
+    nextUnlockName: 'Advanced Castle',
+    cardBg: 'bg-gradient-to-br from-violet-50 to-purple-50',
+    border: 'border-violet-200',
+    titleColor: 'text-violet-700',
+    pointsColor: 'text-violet-600',
+    mapFrom: 'from-violet-300',
+    mapVia: 'via-purple-400',
+    mapTo: 'to-fuchsia-400',
+    nodeActive: 'bg-gray-400 border-gray-500',
+    image: 'https://images.pexels.com/photos/1366919/pexels-photo-1366919.jpeg?auto=compress&cs=tinysrgb&w=140&h=140&fit=crop',
+  },
+  advanced: {
+    label: 'Advanced Castle',
+    questions: 10,
+    pointsPerQ: 20,
+    lines: ['Word problems, mixed numbers', 'and tricky challenges!'],
+    unlockNeed: 120,
+    unlockFrom: 'Intermediate Mountain',
+    nextUnlockPoints: null as number | null,
+    nextUnlockName: null as string | null,
+    cardBg: 'bg-gradient-to-br from-amber-50 to-orange-50',
+    border: 'border-amber-200',
+    titleColor: 'text-orange-700',
+    pointsColor: 'text-orange-600',
+    mapFrom: 'from-amber-300',
+    mapVia: 'via-orange-300',
+    mapTo: 'to-yellow-400',
+    nodeActive: 'bg-gray-400 border-gray-500',
+    image: 'https://images.pexels.com/photos/161936/castle-scotland-uk-britain-161936.jpeg?auto=compress&cs=tinysrgb&w=140&h=140&fit=crop',
+  },
+} as const;
+
+// Small node circle for the level map
+function MapNode({
+  n,
+  locked,
+  completed,
+}: {
+  n: number;
+  locked: boolean;
+  completed?: boolean;
+}) {
+  return (
+    <div
+      className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-bold shadow-sm flex-shrink-0 transition-all
+        ${locked
+          ? 'bg-gray-300 border-gray-400 text-gray-500'
+          : completed
+            ? 'bg-blue-500 border-blue-600 text-white'
+            : 'bg-green-500 border-green-600 text-white'
+        }`}
+    >
+      {locked ? <Lock className="w-3.5 h-3.5" /> : n}
+    </div>
+  );
+}
+
+export function PracticeMode({ onComplete }: PracticeModeProps) {
+  const { student, updateStudentScore, incrementSessions } = useAuth();
+  const [gameState, setGameState] = useState<'menu' | 'playing' | 'feedback'>('menu');
+  const [difficulty, setDifficulty] = useState<Difficulty>('beginner');
+  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+  const [completedDifficulties, setCompletedDifficulties] = useState<Set<string>>(new Set());
+
+  const [bestScores, setBestScores] = useState<
+    Record<string, { points: number; correct: number; total: number }>
+  >({});
+
+  const [activeSessions, setActiveSessions] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    if (!student) return;
+
+    supabase
+      .from('sessions')
+      .select('*')
+      .eq('student_id', student.id)
+      .then(({ data }) => {
+        if (!data) return;
+
+        const completed = new Set<string>();
+        const bests: Record<string, { points: number; correct: number; total: number }> = {};
+        const active: Record<string, any> = {};
+
+        data.forEach((s) => {
+          const totalNeeded =
+            s.difficulty === 'beginner' ? 5 : 10;
+
+          if (s.questions_answered >= totalNeeded) {
+            completed.add(s.difficulty);
+          }
+
+          const prev = bests[s.difficulty];
+          if (!prev || s.score > prev.points) {
+            bests[s.difficulty] = {
+              points: s.score ?? 0,
+              correct: s.correct_answers ?? 0,
+              total: s.questions_answered ?? 0,
+            };
+          }
+
+          if (
+            s.questions_answered > 0 &&
+            s.questions_answered < totalNeeded &&
+            !active[s.difficulty]
+          ) {
+            active[s.difficulty] = s;
+          }
+        });
+
+        setCompletedDifficulties(completed);
+        setBestScores(bests);
+        setActiveSessions(active);
+      });
+  }, [student]);
+
+  const [questionNum, setQuestionNum] = useState(1);
+  const [numerator, setNumerator] = useState('');
+  const [denominator, setDenominator] = useState('');
+  const [score, setScore] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [maxStreak, setMaxStreak] = useState(0);
+  const [answers, setAnswers] = useState<AnswerRecord[]>([]);
+  const [feedback, setFeedback] = useState<MisconceptionResult | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [needsSimplify, setNeedsSimplify] = useState(false);
+  const [rawAnswer, setRawAnswer] = useState<{ numerator: number; denominator: number } | null>(null);
+
+  const [shakeBox, setShakeBox] = useState(false);
+
+  const [showPoints, setShowPoints] = useState(false);
+  const [earnedPoints, setEarnedPoints] = useState(0);
+
+
+  const [simpNumerator, setSimpNumerator] = useState('');
+  const [simpDenominator, setSimpDenominator] = useState('');
+
+  const [simplifyMessage, setSimplifyMessage] = useState('');
+  const [simplifyType, setSimplifyType] = useState<'success' | 'warning' | 'error' | ''>('');
+
+  const scoreRef = useRef(0);
+  const sessionIdRef = useRef<string | null>(null);
+  const difficultyRef = useRef<Difficulty>('beginner');
+
+  const gcd = (a: number, b: number): number => {
+    return b === 0 ? a : gcd(b, a % b);
+  };
+
+  const simplifyFraction = (n: number, d: number) => {
+    const g = gcd(Math.abs(n), Math.abs(d));
+    return {
+      numerator: n / g,
+      denominator: d / g,
+    };
+  };
+
+  const isEquivalent = (
+    n1: number,
+    d1: number,
+    n2: number,
+    d2: number
+  ) => {
+    return n1 * d2 === n2 * d1;
+  };
+
+  const getTotalQuestions = (diff: Difficulty) => {
+    if (diff === 'beginner') return 5;
+    if (diff === 'intermediate') return 10;
+    return 10;
+  };
+
+  const totalScore = student?.total_score ?? 0;
+
+  const beginnerBest = bestScores.beginner?.points ?? 0;
+  const intermediateBest = bestScores.intermediate?.points ?? 0;
+
+  const intermediateUnlocked = beginnerBest >= 40;
+  const advancedUnlocked = intermediateBest >= 120;
+
+  const isUnlocked = (diff: Difficulty) => {
+    if (diff === 'beginner') return true;
+    if (diff === 'intermediate') return intermediateUnlocked;
+    return advancedUnlocked;
+  };
+
+  const startGame = async (diff: Difficulty) => {
+    if (!isUnlocked(diff)) return;
+    const existing = activeSessions[diff];
+
+    if (existing) {
+      difficultyRef.current = diff;
+      setDifficulty(diff);
+
+      sessionIdRef.current = existing.id;
+      scoreRef.current = existing.score || 0;
+
+      setScore(existing.score || 0);
+      setQuestionNum(existing.questions_answered + 1);
+      setGameState('playing');
+      setCurrentQuestion(generateQuestion(diff));
+      return;
+    }
+    difficultyRef.current = diff;
+    scoreRef.current = 0;
+    setDifficulty(diff);
+    setGameState('playing');
+    setQuestionNum(1);
+    setScore(0);
+    setStreak(0);
+    setMaxStreak(0);
+    setAnswers([]);
+    setNumerator('');
+    setDenominator('');
+    setCurrentQuestion(generateQuestion(diff));
+
+    if (student) {
+      const { data } = await supabase
+        .from('sessions')
+        .insert({
+          student_id: student.id,
+          difficulty: diff,
+          score: 0,
+          questions_answered: 0,
+          correct_answers: 0,
+        })
+        .select()
+        .single();
+
+      if (data) {
+        setSessionId(data.id);
+        sessionIdRef.current = data.id;
+      }
+    }
+  };
+
+  const calculatePoints = (isCorrect: boolean): number => {
+    if (!isCorrect) return 0;
+
+    // Fixed score system per level only
+    if (difficultyRef.current === 'beginner') return 10;
+    if (difficultyRef.current === 'intermediate') return 15;
+    return 20; // advanced
+  };
+
+  const celebrateCorrect = () => {
+    confetti({
+      particleCount: 120,
+      spread: 80,
+      origin: { y: 0.7 }
+    });
+
+    const pts = calculatePoints(true);
+    setEarnedPoints(pts);
+    setShowPoints(true);
+
+    setTimeout(() => {
+      setShowPoints(false);
+    }, 1200);
+  };
+
+
+  const checkAnswer = async () => {
+    if (!currentQuestion) return;
+
+    const studentAnswer = {
+      numerator: parseInt(numerator) || 0,
+      denominator: parseInt(denominator) || 0,
+    };
+
+    const correct = currentQuestion.correctAnswer;
+
+    // If equivalent but not simplest form
+    if (
+      isEquivalent(
+        studentAnswer.numerator,
+        studentAnswer.denominator,
+        correct.numerator,
+        correct.denominator
+      ) &&
+      (
+        studentAnswer.numerator !== correct.numerator ||
+        studentAnswer.denominator !== correct.denominator
+      ) &&
+      !needsSimplify
+    ) {
+      setNeedsSimplify(true);
+      setRawAnswer(studentAnswer);
+      return;
+    }
+
+    if (needsSimplify) {
+      const simpAnswer = {
+        numerator: parseInt(simpNumerator) || 0,
+        denominator: parseInt(simpDenominator) || 0,
+      };
+
+      const simplifiedTry = simplifyFraction(
+        simpAnswer.numerator,
+        simpAnswer.denominator
+      );
+
+      // Final correct simplest answer
+      if (
+        simpAnswer.numerator === correct.numerator &&
+        simpAnswer.denominator === correct.denominator
+      ) {
+        setNeedsSimplify(false);
+        setRawAnswer(null);
+        setSimplifyMessage('');
+        setSimplifyType('');
+        celebrateCorrect();
+
+        const pts = calculatePoints(true);
+        setEarnedPoints(pts);
+        setShowPoints(true);
+
+        setTimeout(() => {
+          setShowPoints(false);
+        }, 1200);
+      }
+
+      // Equivalent but not simplest
+      else if (
+        isEquivalent(
+          simpAnswer.numerator,
+          simpAnswer.denominator,
+          correct.numerator,
+          correct.denominator
+        )
+      ) {
+        // Student simplified somewhat
+        if (
+          simpAnswer.numerator !== rawAnswer?.numerator ||
+          simpAnswer.denominator !== rawAnswer?.denominator
+        ) {
+          setSimplifyType('success');
+          setSimplifyMessage('🧠 Great first step! You simplified it once. Can simplify one more time.');
+        } else {
+          setSimplifyType('warning');
+          setSimplifyMessage('🟡 Good try! Your answer is correct but can still be simplified further.');
+        }
+
+        return;
+      }
+
+      // Wrong answer
+      else {
+        setSimplifyType('error');
+        setSimplifyMessage('❌ That simplified answer is not correct.');
+        setShakeBox(true);
+        setTimeout(() => setShakeBox(false), 500);
+        return;
+      }
+    }
+
+    const misconception = detectMisconception(
+      studentAnswer.numerator > 0 && studentAnswer.denominator > 0 ? studentAnswer : null,
+      currentQuestion
+    );
+
+    const isCorrect = misconception.type === null;
+    if (isCorrect) {
+      celebrateCorrect();
+    }
+    const newStreak = isCorrect ? streak + 1 : 0;
+    const newMaxStreak = Math.max(maxStreak, newStreak);
+    const points = calculatePoints(isCorrect);
+    const newScore = scoreRef.current + points;
+    scoreRef.current = newScore;
+
+    const answerRecord: AnswerRecord = {
+      question: currentQuestion,
+      studentAnswer: studentAnswer.numerator > 0 && studentAnswer.denominator > 0 ? studentAnswer : null,
+      isCorrect,
+      misconception,
+      questionNum,
+    };
+
+    const updatedAnswers = [...answers, answerRecord];
+    setAnswers(updatedAnswers);
+    setFeedback(misconception);
+    setStreak(newStreak);
+    setMaxStreak(newMaxStreak);
+    setScore(newScore);
+    setGameState('feedback');
+
+    const sid = sessionIdRef.current;
+    if (sid) {
+      await supabase.from('session_answers').insert({
+        session_id: sid,
+        question_num: questionNum,
+        numerator1: currentQuestion.fraction1.numerator,
+        denominator1: currentQuestion.fraction1.denominator,
+        numerator2: currentQuestion.fraction2.numerator,
+        denominator2: currentQuestion.fraction2.denominator,
+        student_numerator: studentAnswer.numerator || null,
+        student_denominator: studentAnswer.denominator || null,
+        correct_numerator: currentQuestion.correctAnswer.numerator,
+        correct_denominator: currentQuestion.correctAnswer.denominator,
+        is_correct: isCorrect,
+        misconception_type: misconception.type,
+      });
+
+      await supabase
+        .from('sessions')
+        .update({
+          score: newScore,
+          questions_answered: questionNum,
+          correct_answers: updatedAnswers.filter(a => a.isCorrect).length,
+        })
+        .eq('id', sid);
+    }
+  };
+
+  const nextQuestion = () => {
+    if (questionNum >= getTotalQuestions(difficultyRef.current)) {
+      endGame();
+      return;
+    }
+    setQuestionNum(questionNum + 1);
+    setNumerator('');
+    setDenominator('');
+    setNeedsSimplify(false);
+    setRawAnswer(null);
+    setSimpNumerator('');
+    setSimpDenominator('');
+    setSimplifyMessage('');
+    setSimplifyType('');
+    setFeedback(null);
+    setGameState('playing');
+    setCurrentQuestion(generateQuestion(difficultyRef.current));
+  };
+
+  const endGame = async () => {
+    const finalScore = scoreRef.current;
+    const sid = sessionIdRef.current;
+    if (sid && student) {
+      await updateStudentScore(finalScore);
+      await incrementSessions();
+      setCompletedDifficulties(prev => new Set([...prev, difficultyRef.current]));
+      onComplete(sid);
+    }
+  };
+
+  const goBackToMenu = async () => {
+    const diff = difficultyRef.current;
+    const sid = sessionIdRef.current;
+
+    if (sid) {
+      setActiveSessions(prev => ({
+        ...prev,
+        [diff]: {
+          ...(prev[diff] || {}),
+          id: sid,
+          difficulty: diff,
+          questions_answered: questionNum - 1,
+          score: scoreRef.current,
+        }
+      }));
+    }
+
+    setGameState('menu');
+    setNumerator('');
+    setDenominator('');
+  };
+
+  // ─── Adventure map menu ────────────────────────────────────────────────────
+  const renderMenu = () => {
+    const maxPoints = 270;
+    const progressPct = Math.min(100, Math.round((totalScore / maxPoints) * 100));
+
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
+
+        {/* ── Hero banner ── */}
+        <div className="relative overflow-hidden rounded-3xl shadow-xl">
+          {/* Sky / landscape background */}
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: "url('https://images.pexels.com/photos/1118873/pexels-photo-1118873.jpeg?auto=compress&cs=tinysrgb&w=1400&h=300&fit=crop')" }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/80 via-cyan-400/70 to-teal-400/60" />
+
+          <div className="relative flex flex-col lg:flex-row items-center gap-6 px-6 py-6">
+            {/* Title block */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center flex-shrink-0">
+                  <Gamepad2 className="w-7 h-7 text-white" />
+                </div>
+                <h1 className="text-3xl font-extrabold text-white drop-shadow-md leading-tight">
+                  Practice Adventure
+                </h1>
+              </div>
+              <p className="text-white/90 font-medium text-sm ml-1">
+                Complete levels, earn points and become a Fraction Master!
+              </p>
+            </div>
+
+            {/* Mascot speech bubble — hidden on small screens */}
+            <div className="hidden md:flex items-end gap-3 flex-shrink-0">
+              <div className="bg-white/95 rounded-2xl px-4 py-3 shadow-lg max-w-[180px] text-center text-sm text-gray-700 font-medium relative">
+                Finish levels and collect enough points to unlock the next adventure!
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white/95 rotate-45" />
+              </div>
+              <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-3xl flex-shrink-0">
+                🎓
+              </div>
+            </div>
+
+            {/* Progress card */}
+            <div className="w-full lg:w-64 bg-white/95 backdrop-blur rounded-2xl p-4 shadow-xl flex-shrink-0">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-amber-400 rounded-lg flex items-center justify-center">
+                    <Trophy className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="font-bold text-gray-800 text-sm">Your Progress</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-gray-400" />
+              </div>
+              <div className="flex items-center gap-3 mb-3">
+                <Star className="w-9 h-9 text-amber-400 fill-amber-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-2xl font-extrabold text-gray-900 leading-none">
+                    {totalScore}
+                    {/* <span className="text-gray-400 text-sm font-normal"> / {maxPoints}</span> */}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">Total Points</p>
+                </div>
+                <div className="text-2xl flex-shrink-0">🏆</div>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-500"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Level rows ── */}
+        {(['beginner', 'intermediate', 'advanced'] as Difficulty[]).map((diff) => {
+          const cfg = LEVEL_CONFIG[diff];
+          const locked = !isUnlocked(diff);
+          const completed = completedDifficulties.has(diff);
+          const best = bestScores[diff];
+          const maxPossible = cfg.questions * cfg.pointsPerQ;
+
+          return (
+            <div
+              key={diff}
+              className={`rounded-3xl overflow-hidden shadow-lg border ${cfg.border} flex flex-col lg:flex-row`}
+            >
+              {/* ── Left: level info ── */}
+              <div className={`${cfg.cardBg} p-5 lg:w-72 flex-shrink-0 flex flex-col justify-between`}>
+                <div className="flex gap-4 items-start">
+                  <div className="w-[72px] h-[72px] rounded-2xl overflow-hidden shadow-md flex-shrink-0">
+                    <img
+                      src={cfg.image}
+                      alt={cfg.label}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className={`text-base font-extrabold uppercase tracking-wide leading-tight ${cfg.titleColor}`}>
+                      {cfg.label}
+                    </h2>
+                    <p className="text-sm font-bold text-gray-700 mt-0.5">{cfg.questions} Questions</p>
+                    {cfg.lines.map((line, i) => (
+                      <p key={i} className="text-xs text-gray-500 leading-snug">{line}</p>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-dashed border-gray-300/70 flex items-center gap-1.5">
+                  <Star className="w-4 h-4 text-amber-400 fill-amber-400 flex-shrink-0" />
+                  <span className={`text-xs font-semibold ${cfg.pointsColor}`}>
+                    {cfg.pointsPerQ} points per correct answer
+                  </span>
+                </div>
+              </div>
+
+              {/* ── Centre: map ── */}
+              <div
+                className={`flex-1 relative flex flex-col bg-gradient-to-r ${cfg.mapFrom} ${cfg.mapVia} ${cfg.mapTo} min-h-[160px]`}
+              >
+                {/* Lock overlay */}
+                {locked && (
+                  <div className="absolute inset-0 bg-black/20 z-20 flex items-center justify-center">
+                    <div className="bg-gray-900/75 backdrop-blur-sm text-white px-5 py-2.5 rounded-2xl flex items-center gap-2 font-bold text-sm shadow-xl">
+                      <Lock className="w-4 h-4" />
+                      LOCKED
+                    </div>
+                  </div>
+                )}
+
+                {/* Node path */}
+                <div className="flex-1 flex items-center justify-center px-4 py-4">
+                  <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                    {Array.from({ length: cfg.questions }, (_, i) => (
+                      <React.Fragment key={i}>
+                        <MapNode
+                          n={i + 1}
+                          locked={locked}
+                          completed={
+                            activeSessions[diff]
+                              ? i + 1 <= activeSessions[diff].questions_answered
+                              : false
+                          }
+                        />
+                        {i < cfg.questions - 1 && (
+                          <div className="w-3 h-0.5 bg-white/50 flex-shrink-0" />
+                        )}
+                      </React.Fragment>
+                    ))}
+                    <div className="w-3 h-0.5 bg-white/50 flex-shrink-0" />
+                    {/* Treasure chest at end */}
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-md text-xl flex-shrink-0
+                      ${locked ? 'bg-gray-400/60' : 'bg-amber-500'}`}>
+                      🏆
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom action / unlock bar */}
+                <div className={`mx-3 mb-3 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-3
+                  ${locked ? 'bg-white/55' : 'bg-white/80'}`}>
+                  {locked ? (
+                    <>
+                      <p className="text-sm text-gray-700 flex items-center gap-1.5 min-w-0">
+                        <Star className="w-4 h-4 text-amber-400 fill-amber-400 flex-shrink-0" />
+                        <span className="truncate">
+                          Complete {cfg.unlockFrom} and get at least {cfg.unlockNeed} points to unlock this level!
+                        </span>
+                      </p>
+                      <button
+                        disabled
+                        className="flex-shrink-0 bg-amber-100 text-amber-700 font-bold text-xs px-3 py-1.5 rounded-xl flex items-center gap-1"
+                      >
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        Need {cfg.unlockNeed} points
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-gray-700 flex items-center gap-1.5 min-w-0">
+                        {completed
+                          ? <><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" /><span>Completed! Play again to beat your score.</span></>
+                          : cfg.nextUnlockPoints
+                            ? <><Star className="w-4 h-4 text-amber-400 fill-amber-400 flex-shrink-0" /><span>Get at least {cfg.nextUnlockPoints} points to unlock {cfg.nextUnlockName}!</span></>
+                            : <><Star className="w-4 h-4 text-amber-400 fill-amber-400 flex-shrink-0" /><span>Reach the top — become a Fraction Master!</span></>
+                        }
+                      </p>
+                      {cfg.nextUnlockPoints && !completed && (
+                        <button
+                          disabled
+                          className="flex-shrink-0 bg-green-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl"
+                        >
+                          You need {cfg.nextUnlockPoints} points
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* ── Right: stats / CTA ── */}
+              <div className="bg-white px-4 py-5 lg:w-48 flex-shrink-0 flex flex-col justify-between gap-3">
+                {locked ? (
+                  /* Unlocks-at panel */
+                  <div className="text-center">
+                    <div className="w-10 h-10 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-center mx-auto mb-2">
+                      <Lock className="w-5 h-5 text-amber-500" />
+                    </div>
+                    <p className={`font-bold text-sm ${cfg.titleColor}`}>Unlocks At</p>
+                    <p className="text-xs text-gray-400 mt-1">Need</p>
+                    <p className={`text-4xl font-extrabold leading-none my-1 ${cfg.titleColor}`}>{cfg.unlockNeed}</p>
+                    <p className="text-xs text-gray-400">points from</p>
+                    <p className="text-xs font-semibold text-gray-600 mt-0.5">{cfg.unlockFrom}</p>
+                    {/* Faded trophy watermark */}
+                    <div className="mt-3 opacity-20 text-5xl text-center">🏆</div>
+                  </div>
+                ) : (
+                  /* Your Best panel */
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <Trophy className="w-4 h-4 text-amber-500" />
+                      <span className="font-bold text-gray-700 text-sm">Your Best</span>
+                    </div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Points</p>
+                    <p className={`text-2xl font-extrabold leading-tight ${cfg.titleColor}`}>
+                      {best?.points ?? 0}
+                      <span className="text-gray-300 text-sm font-normal"> / {maxPossible}</span>
+                    </p>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide mt-2">Completed</p>
+                    <p className="text-xl font-bold text-gray-700">
+                      {best?.correct ?? 0}
+                      <span className="text-gray-300 text-sm font-normal"> / {cfg.questions}</span>
+                    </p>
+                  </div>
+                )}
+
+                {/* Play button */}
+                {!locked && (
+                  <button
+                    onClick={() => startGame(diff)}
+                    className={`w-full py-2.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-95
+  ${completed
+                        ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                        : 'bg-green-500 hover:bg-green-600 text-white'}`}
+                  >
+                    {
+                      activeSessions[diff]
+                        ? 'Continue'
+                        : completed
+                          ? 'Play Again'
+                          : 'Start'
+                    }
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* ── Footer tip ── */}
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 flex items-center gap-3 text-sm text-gray-700">
+          <span className="text-xl flex-shrink-0">💡</span>
+          <p>
+            Tip: The more points you earn, the closer you are to becoming a{' '}
+            <strong className="text-amber-600">Fraction Master!</strong> ✨
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── Playing view ──────────────────────────────────────────────────────────
+  const renderPlaying = () => {
+    if (!currentQuestion) return null;
+    const wordProblem =
+      difficultyRef.current === 'advanced' && questionNum > 5
+        ? getWordProblem(currentQuestion, difficultyRef.current)
+        : 'Multiply the fractions below.';
+    return (
+      <div className="max-w-2xl mx-auto p-4 relative">
+        <div className="flex items-center justify-between mb-6 gap-3">
+
+          {/* Left side */}
+          <div className="flex items-center gap-3">
+
+            <button
+              onClick={goBackToMenu}
+              className="bg-white shadow px-4 py-2 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition"
+            >
+              ← Back
+            </button>
+
+            <div className="bg-indigo-100 px-4 py-2 rounded-xl">
+              <span className="text-sm text-indigo-600">Question</span>
+              <span className="ml-2 text-xl font-bold text-indigo-700">
+                {questionNum}/{getTotalQuestions(difficultyRef.current)}
+              </span>
+            </div>
+
+            <div className="bg-amber-100 px-4 py-2 rounded-xl">
+              <span className="text-sm text-amber-600">Score</span>
+              <span className="ml-2 text-xl font-bold text-amber-700">{score}</span>
+            </div>
+
+          </div>
+
+          {showPoints && (
+            <div className="absolute right-6 top-3 points-pop z-50">
+              +{earnedPoints} POINTS ⭐
+            </div>
+          )}
+
+          {/* Right side */}
+          <div className="flex items-center gap-2 bg-orange-100 px-4 py-2 rounded-xl">
+            <Flame className="w-5 h-5 text-orange-500" />
+            <span className="text-xl font-bold text-orange-600">{streak}</span>
+          </div>
+
+        </div>
+
+        <div className="card mb-6">
+          <p className="text-lg text-gray-700 leading-relaxed">{wordProblem}</p>
+        </div>
+
+        <div className="card mb-6">
+          <h3 className="text-lg text-gray-700 mb-4 text-center">Calculate the answer:</h3>
+          <div className="flex items-center justify-center gap-6">
+            <Fraction
+              numerator={currentQuestion.fraction1.numerator}
+              denominator={currentQuestion.fraction1.denominator}
+              color="text-indigo-600"
+              size="xl"
+            />
+            <span className="text-3xl font-bold text-gray-400">×</span>
+            <Fraction
+              numerator={currentQuestion.fraction2.numerator}
+              denominator={currentQuestion.fraction2.denominator}
+              color="text-indigo-600"
+              size="xl"
+            />
+            <span className="text-3xl font-bold text-gray-400">=</span>
+            <span className="inline-flex flex-col items-center">
+              <input
+                type="number"
+                value={numerator}
+                onChange={(e) => setNumerator(e.target.value)}
+                placeholder="?"
+                className={`fraction-box ${shakeBox ? 'animate-shake' : ''}`}
+                min="0"
+              />
+              <span className="block w-full border-t-2 border-amber-400 my-0.5" />
+              <input
+                type="number"
+                value={denominator}
+                onChange={(e) => setDenominator(e.target.value)}
+                placeholder="?"
+                className={`fraction-box ${shakeBox ? 'animate-shake' : ''}`}
+                min="1"
+              />
+            </span>
+          </div>
+        </div>
+
+        {simplifyMessage && (
+          <div
+            className={`mb-4 px-4 py-3 rounded-2xl font-semibold text-sm shadow-sm
+      ${simplifyType === 'success'
+                ? 'bg-green-100 text-green-700'
+                : simplifyType === 'warning'
+                  ? 'bg-yellow-100 text-yellow-700'
+                  : 'bg-red-100 text-red-700'
+              }`}
+          >
+            {simplifyMessage}
+          </div>
+        )}
+
+        {needsSimplify && rawAnswer && (
+          <div className="mt-6 text-center">
+
+            <p className="text-green-600 font-bold">
+              ✅ Multiplication correct!
+            </p>
+
+            <p className="text-blue-600 font-semibold mb-4">
+              🔵 Now simplify your answer to lowest terms.
+            </p>
+
+            <div className="flex items-center justify-center gap-4">
+
+              <Fraction
+                numerator={rawAnswer.numerator}
+                denominator={rawAnswer.denominator}
+                color="text-indigo-600"
+                size="lg"
+              />
+
+              <span className="text-2xl font-bold text-gray-500">=</span>
+
+              <span className="inline-flex flex-col items-center">
+                <input
+                  type="number"
+                  value={simpNumerator}
+                  onChange={(e) => setSimpNumerator(e.target.value)}
+                  className={`fraction-box ${shakeBox ? 'animate-shake' : ''}`}
+                />
+
+                <span className="block w-full border-t-2 border-amber-400 my-0.5" />
+
+                <input
+                  type="number"
+                  value={simpDenominator}
+                  onChange={(e) => setSimpDenominator(e.target.value)}
+                  className={`fraction-box ${shakeBox ? 'animate-shake' : ''}`}
+                />
+              </span>
+
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={checkAnswer}
+          disabled={
+            needsSimplify
+              ? !simpNumerator || !simpDenominator
+              : !numerator || !denominator
+          }
+          className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Check Answer
+          <ArrowRight className="w-5 h-5" />
+        </button>
+      </div>
+    );
+  };
+
+  // ─── Feedback view ─────────────────────────────────────────────────────────
+  const renderFeedback = () => {
+    if (!feedback || !currentQuestion) return null;
+
+    return (
+      <div className="max-w-2xl mx-auto p-4 relative">
+        {showPoints && (
+          <div className="absolute right-4 top-2 points-pop z-50">
+            +{earnedPoints} POINTS ⭐
+          </div>
+        )}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <div className="bg-indigo-100 px-4 py-2 rounded-xl">
+              <span className="text-sm text-indigo-600">Question</span>
+              <span className="ml-2 text-xl font-bold text-indigo-700">{questionNum}/{getTotalQuestions(difficultyRef.current)}</span>
+            </div>
+            <div className="bg-amber-100 px-4 py-2 rounded-xl">
+              <span className="text-sm text-amber-600">Score</span>
+              <span className="ml-2 text-xl font-bold text-amber-700">{score}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-orange-100 px-4 py-2 rounded-xl">
+            <Flame className="w-5 h-5 text-orange-500" />
+            <span className="text-xl font-bold text-orange-600">{streak}</span>
+          </div>
+        </div>
+
+        <div
+          className={`card mb-6 ${feedback.type === null ? 'bg-green-50 border-2 border-green-300' : 'bg-amber-50 border-2 border-amber-300'
+            }`}
+        >
+          <div className="flex items-start gap-4">
+            {feedback.type === null ? (
+              <CheckCircle className="w-8 h-8 text-green-500 flex-shrink-0" />
+            ) : (
+              <XCircle className="w-8 h-8 text-amber-500 flex-shrink-0" />
+            )}
+            <div>
+              <h3 className={`text-xl mb-2 ${feedback.type === null ? 'text-green-700' : 'text-amber-700'}`}>
+                {feedback.message}
+              </h3>
+              {feedback.tip && <p className="text-gray-600">{feedback.tip}</p>}
+            </div>
+          </div>
+        </div>
+
+        {feedback.type !== null && (
+          <div className="card mb-6 bg-indigo-50">
+            <h4 className="text-lg text-indigo-700 mb-3">The correct answer:</h4>
+            <div className="flex items-center justify-center gap-4">
+              <Fraction
+                numerator={currentQuestion.fraction1.numerator}
+                denominator={currentQuestion.fraction1.denominator}
+                color="text-indigo-600"
+                size="lg"
+              />
+              <span className="text-2xl font-bold text-gray-400">×</span>
+              <Fraction
+                numerator={currentQuestion.fraction2.numerator}
+                denominator={currentQuestion.fraction2.denominator}
+                color="text-indigo-600"
+                size="lg"
+              />
+              <span className="text-2xl font-bold text-gray-400">=</span>
+              <Fraction
+                numerator={currentQuestion.correctAnswer.numerator}
+                denominator={currentQuestion.correctAnswer.denominator}
+                color="text-green-600"
+                size="lg"
+              />
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={nextQuestion}
+          className="btn-primary w-full flex items-center justify-center gap-2"
+        >
+          {questionNum >= getTotalQuestions(difficultyRef.current)
+            ? 'See Results'
+            : 'Next Question'}
+          <ArrowRight className="w-5 h-5" />
+        </button>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {gameState === 'menu' && renderMenu()}
+      {gameState === 'playing' && renderPlaying()}
+      {gameState === 'feedback' && renderFeedback()}
+    </>
+  );
+}

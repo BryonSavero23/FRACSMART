@@ -1,0 +1,197 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: linear-gradient(135deg, #eef2ff 0%, #fef3c7 100%);
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Fredoka One', cursive;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg;
+  }
+
+  .btn-secondary {
+    @apply bg-amber-400 hover:bg-amber-500 text-indigo-900 font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl shadow-xl p-6 transition-all duration-200;
+  }
+
+  .card-hover {
+    @apply hover:shadow-2xl hover:scale-[1.02] cursor-pointer;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 rounded-xl border-2 border-indigo-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all duration-200 text-lg;
+  }
+
+  .fraction-box {
+    @apply w-16 h-12 text-center text-2xl font-bold border-2 border-indigo-400 rounded-lg focus:border-indigo-600 focus:ring-2 focus:ring-indigo-200 outline-none bg-white;
+  }
+}
+
+@layer utilities {
+  .text-shadow {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+  }
+}
+
+@keyframes floatUpDown {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(2deg); }
+}
+
+@keyframes floatUpDownAlt {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-14px) rotate(-3deg); }
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.7); }
+}
+
+.animate-float {
+  animation: floatUpDown 3s ease-in-out infinite;
+}
+
+.animate-float-alt {
+  animation: floatUpDownAlt 4s ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: floatUpDown 5s ease-in-out infinite;
+}
+
+.animate-twinkle {
+  animation: twinkle 2s ease-in-out infinite;
+}
+
+.text-stroke-white {
+  -webkit-text-stroke: 3px white;
+  paint-order: stroke fill;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-slideIn {
+  animation: slideIn 0.3s ease-out forwards;
+}
+
+.animate-pulse-once {
+  animation: pulse 0.5s ease-in-out;
+}
+
+@media (max-width: 768px) {
+  .fraction-box {
+    @apply w-14 h-10 text-xl;
+  }
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@keyframes shake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+  100% { transform: translateX(0); }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease;
+}
+
+.points-pop {
+  font-weight: 900;
+  font-size: 26px;
+  color: #f59e0b;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.15);
+  animation: floatPoints 1.2s ease-out forwards;
+}
+
+@keyframes floatPoints {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.6);
+  }
+
+  20% {
+    opacity: 1;
+    transform: translateY(0px) scale(1.15);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-70px) scale(1);
+  }
+}
