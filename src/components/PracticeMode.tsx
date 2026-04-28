@@ -39,7 +39,7 @@ const LEVEL_CONFIG = {
     mapVia: 'via-teal-300',
     mapTo: 'to-green-400',
     nodeActive: 'bg-green-500 border-green-600',
-    image: 'https://images.pexels.com/photos/1024993/pexels-photo-1024993.jpeg?auto=compress&cs=tinysrgb&w=140&h=140&fit=crop',
+    image: 'https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcTjDoY0LMq4IHfi0IpK1d5FcaFhbyFuFMIn--BdJVT4j6g0nxwQ',
   },
   intermediate: {
     label: 'Intermediate Mountain',
@@ -58,7 +58,7 @@ const LEVEL_CONFIG = {
     mapVia: 'via-purple-400',
     mapTo: 'to-fuchsia-400',
     nodeActive: 'bg-gray-400 border-gray-500',
-    image: 'https://images.pexels.com/photos/1366919/pexels-photo-1366919.jpeg?auto=compress&cs=tinysrgb&w=140&h=140&fit=crop',
+    image: 'https://png.pngtree.com/png-vector/20231214/ourmid/pngtree-natural-landscape-model-game-free-element-decorative-material-png-image_11343058.png',
   },
   advanced: {
     label: 'Advanced Castle',
@@ -77,7 +77,7 @@ const LEVEL_CONFIG = {
     mapVia: 'via-orange-300',
     mapTo: 'to-yellow-400',
     nodeActive: 'bg-gray-400 border-gray-500',
-    image: 'https://images.pexels.com/photos/161936/castle-scotland-uk-britain-161936.jpeg?auto=compress&cs=tinysrgb&w=140&h=140&fit=crop',
+    image: 'https://thumbs.dreamstime.com/b/whimsical-cartoon-illustration-grand-medieval-castle-complete-towers-battlements-perched-atop-grassy-hill-407541124.jpg',
   },
 } as const;
 
