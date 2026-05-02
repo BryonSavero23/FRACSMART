@@ -18,6 +18,107 @@ interface AnswerRecord {
   questionNum: number;
 }
 
+const BEGINNER_QUESTIONS = [
+  {
+    fraction1: { numerator: 3, denominator: 1 },
+    fraction2: { numerator: 1, denominator: 2 },
+    correctAnswer: { numerator: 3, denominator: 2 },
+  },
+  {
+    fraction1: { numerator: 5, denominator: 1 },
+    fraction2: { numerator: 2, denominator: 3 },
+    correctAnswer: { numerator: 10, denominator: 3 },
+  },
+  {
+    fraction1: { numerator: 4, denominator: 1 },
+    fraction2: { numerator: 3, denominator: 5 },
+    correctAnswer: { numerator: 12, denominator: 5 },
+  },
+  {
+    fraction1: { numerator: 5, denominator: 6 },
+    fraction2: { numerator: 3, denominator: 1 },
+    correctAnswer: { numerator: 5, denominator: 2 },
+  },
+  {
+    fraction1: { numerator: 7, denominator: 8 },
+    fraction2: { numerator: 2, denominator: 1 },
+    correctAnswer: { numerator: 7, denominator: 4 },
+  },
+];
+
+const INTERMEDIATE_QUESTIONS = [
+  {
+    display1: { whole: 0, numerator: 2, denominator: 3 },
+    display2: { whole: 0, numerator: 5, denominator: 4 },
+    fraction1: { numerator: 2, denominator: 3 },
+    fraction2: { numerator: 5, denominator: 4 },
+    correctAnswer: { numerator: 5, denominator: 6 },
+  },
+  {
+    display1: { whole: 0, numerator: 3, denominator: 5 },
+    display2: { whole: 0, numerator: 7, denominator: 8 },
+    fraction1: { numerator: 3, denominator: 5 },
+    fraction2: { numerator: 7, denominator: 8 },
+    correctAnswer: { numerator: 21, denominator: 40 },
+  },
+  {
+    display1: { whole: 0, numerator: 4, denominator: 7 },
+    display2: { whole: 0, numerator: 3, denominator: 5 },
+    fraction1: { numerator: 4, denominator: 7 },
+    fraction2: { numerator: 3, denominator: 5 },
+    correctAnswer: { numerator: 12, denominator: 35 },
+  },
+  {
+    display1: { whole: 2, numerator: 1, denominator: 5 },
+    display2: { whole: 0, numerator: 2, denominator: 3 },
+    fraction1: { numerator: 11, denominator: 5 },
+    fraction2: { numerator: 2, denominator: 3 },
+    correctAnswer: { numerator: 22, denominator: 15 },
+  },
+  {
+    display1: { whole: 3, numerator: 2, denominator: 5 },
+    display2: { whole: 0, numerator: 2, denominator: 5 },
+    fraction1: { numerator: 17, denominator: 5 },
+    fraction2: { numerator: 2, denominator: 5 },
+    correctAnswer: { numerator: 34, denominator: 25 },
+  },
+  {
+    display1: { whole: 1, numerator: 3, denominator: 4 },
+    display2: { whole: 0, numerator: 2, denominator: 4 },
+    fraction1: { numerator: 7, denominator: 4 },
+    fraction2: { numerator: 2, denominator: 4 },
+    correctAnswer: { numerator: 7, denominator: 8 },
+  },
+  {
+    display1: { whole: 2, numerator: 1, denominator: 4 },
+    display2: { whole: 34, numerator: 0, denominator: 1 },
+    fraction1: { numerator: 9, denominator: 4 },
+    fraction2: { numerator: 34, denominator: 1 },
+    correctAnswer: { numerator: 153, denominator: 2 },
+  },
+  {
+    display1: { whole: 3, numerator: 1, denominator: 4 },
+    display2: { whole: 56, numerator: 0, denominator: 1 },
+    fraction1: { numerator: 13, denominator: 4 },
+    fraction2: { numerator: 56, denominator: 1 },
+    correctAnswer: { numerator: 182, denominator: 1 },
+  },
+  {
+    display1: { whole: 10, numerator: 3, denominator: 8 },
+    display2: { whole: 32, numerator: 0, denominator: 1 },
+    fraction1: { numerator: 83, denominator: 8 },
+    fraction2: { numerator: 32, denominator: 1 },
+    correctAnswer: { numerator: 332, denominator: 1 },
+  },
+  {
+    display1: { whole: 3, numerator: 4, denominator: 5 },
+    display2: { whole: 0, numerator: 3, denominator: 4 },
+    fraction1: { numerator: 19, denominator: 5 },
+    fraction2: { numerator: 3, denominator: 4 },
+    correctAnswer: { numerator: 57, denominator: 20 },
+  },
+];
+
 type Difficulty = 'beginner' | 'intermediate' | 'advanced';
 
 // Per-level static config used only in the menu UI
@@ -168,6 +269,7 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
   const [questionNum, setQuestionNum] = useState(1);
   const [numerator, setNumerator] = useState('');
   const [denominator, setDenominator] = useState('');
+  const [whole, setWhole] = useState('');
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [maxStreak, setMaxStreak] = useState(0);
@@ -203,6 +305,27 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
       numerator: n / g,
       denominator: d / g,
     };
+  };
+
+  const toMixedNumber = (n: number, d: number) => {
+    if (d === 1 || n < d) return { whole: 0, numerator: n, denominator: d };
+    return { whole: Math.floor(n / d), numerator: n % d, denominator: d };
+  };
+
+  const renderMixedAnswer = (n: number, d: number, color: string) => {
+    const m = toMixedNumber(n, d);
+    if (m.whole === 0) {
+      return <Fraction numerator={m.numerator} denominator={m.denominator} color={color} size="lg" />;
+    }
+    if (m.numerator === 0) {
+      return <span className={`font-bold text-2xl ${color}`}>{m.whole}</span>;
+    }
+    return (
+      <div className="flex items-center gap-1">
+        <span className={`font-bold text-2xl ${color}`}>{m.whole}</span>
+        <Fraction numerator={m.numerator} denominator={m.denominator} color={color} size="lg" />
+      </div>
+    );
   };
 
   const isEquivalent = (
@@ -248,7 +371,13 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
       setScore(existing.score || 0);
       setQuestionNum(existing.questions_answered + 1);
       setGameState('playing');
-      setCurrentQuestion(generateQuestion(diff));
+      if (diff === 'beginner') {
+  setCurrentQuestion(BEGINNER_QUESTIONS[0]);
+} else if (diff === 'intermediate') {
+  setCurrentQuestion(INTERMEDIATE_QUESTIONS[0]);
+} else {
+  setCurrentQuestion(generateQuestion(diff));
+}
       return;
     }
     difficultyRef.current = diff;
@@ -262,7 +391,13 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
     setAnswers([]);
     setNumerator('');
     setDenominator('');
-    setCurrentQuestion(generateQuestion(diff));
+    if (diff === 'beginner') {
+  setCurrentQuestion(BEGINNER_QUESTIONS[0]);
+} else if (diff === 'intermediate') {
+  setCurrentQuestion(INTERMEDIATE_QUESTIONS[0]);
+} else {
+  setCurrentQuestion(generateQuestion(diff));
+}
 
     if (student) {
       const { data } = await supabase
@@ -313,10 +448,51 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
   const checkAnswer = async () => {
     if (!currentQuestion) return;
 
+    const w = parseInt(whole) || 0;
+    const n = parseInt(numerator) || 0;
+    const d = parseInt(denominator) || 1;
+
     const studentAnswer = {
-      numerator: parseInt(numerator) || 0,
-      denominator: parseInt(denominator) || 0,
+      numerator: w * d + n,
+      denominator: d,
     };
+
+    // 👉 BEGINNER: force mixed-number input
+    if (difficultyRef.current === 'beginner') {
+      const hasWhole = parseInt(whole) > 0;   // must include whole part
+      const hasFraction = parseInt(numerator) > 0; // must include remainder
+
+      const correct = currentQuestion.correctAnswer;
+
+      const isEquivalentAnswer =
+        studentAnswer.numerator * correct.denominator ===
+        studentAnswer.denominator * correct.numerator;
+
+      // If student gives correct value but NOT as mixed number → mark wrong
+      if (isEquivalentAnswer && (!hasWhole || !hasFraction)) {
+        const misconception: MisconceptionResult = {
+          type: 'other', // you can rename later to 'conversion_error'
+          message: '❌ Answer must be in mixed number form!',
+          tip: 'Convert your improper fraction into a mixed number (e.g., 3/2 = 1 1/2).',
+        };
+
+        const answerRecord: AnswerRecord = {
+          question: currentQuestion,
+          studentAnswer,
+          isCorrect: false,
+          misconception,
+          questionNum,
+        };
+
+        const updatedAnswers = [...answers, answerRecord];
+        setAnswers(updatedAnswers);
+        setFeedback(misconception);
+        setStreak(0);
+        setGameState('feedback');
+
+        return; // 🚨 STOP normal checking
+      }
+    }
 
     const correct = currentQuestion.correctAnswer;
 
@@ -469,6 +645,7 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
       return;
     }
     setQuestionNum(questionNum + 1);
+    setWhole('');
     setNumerator('');
     setDenominator('');
     setNeedsSimplify(false);
@@ -479,7 +656,13 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
     setSimplifyType('');
     setFeedback(null);
     setGameState('playing');
-    setCurrentQuestion(generateQuestion(difficultyRef.current));
+    if (difficultyRef.current === 'beginner') {
+  setCurrentQuestion(BEGINNER_QUESTIONS[questionNum]);
+} else if (difficultyRef.current === 'intermediate') {
+  setCurrentQuestion(INTERMEDIATE_QUESTIONS[questionNum]);
+} else {
+  setCurrentQuestion(generateQuestion(difficultyRef.current));
+}
   };
 
   const endGame = async () => {
@@ -796,6 +979,40 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
       difficultyRef.current === 'advanced' && questionNum > 5
         ? getWordProblem(currentQuestion, difficultyRef.current)
         : 'Multiply the fractions below.';
+
+    const renderMixed = (d: any) => {
+  if (!d) return null;
+
+  // Whole + fraction (e.g. 2 1/5)
+  if (d.whole && d.numerator !== 0) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-4xl font-bold text-indigo-600">{d.whole}</span>
+        <Fraction
+          numerator={d.numerator}
+          denominator={d.denominator}
+          color="text-indigo-600"
+          size="xl"
+        />
+      </div>
+    );
+  }
+
+  // Whole only (e.g. 34)
+  if (d.whole && d.numerator === 0) {
+    return <span className="text-4xl font-bold text-indigo-600">{d.whole}</span>;
+  }
+
+  // Normal fraction
+  return (
+    <Fraction
+      numerator={d.numerator}
+      denominator={d.denominator}
+      color="text-indigo-600"
+      size="xl"
+    />
+  );
+};    
     return (
       <div className="max-w-2xl mx-auto p-4 relative">
         <div className="flex items-center justify-between mb-6 gap-3">
@@ -845,39 +1062,76 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
         <div className="card mb-6">
           <h3 className="text-lg text-gray-700 mb-4 text-center">Calculate the answer:</h3>
           <div className="flex items-center justify-center gap-6">
-            <Fraction
-              numerator={currentQuestion.fraction1.numerator}
-              denominator={currentQuestion.fraction1.denominator}
-              color="text-indigo-600"
-              size="xl"
-            />
-            <span className="text-3xl font-bold text-gray-400">×</span>
-            <Fraction
-              numerator={currentQuestion.fraction2.numerator}
-              denominator={currentQuestion.fraction2.denominator}
-              color="text-indigo-600"
-              size="xl"
-            />
+            {difficultyRef.current === 'intermediate'
+  ? renderMixed((currentQuestion as any).display1)
+  : (
+    <Fraction
+      numerator={currentQuestion.fraction1.numerator}
+      denominator={currentQuestion.fraction1.denominator}
+      color="text-indigo-600"
+      size="xl"
+    />
+  )
+}
+
+<span className="text-3xl font-bold text-gray-400">×</span>
+
+{difficultyRef.current === 'intermediate'
+  ? renderMixed((currentQuestion as any).display2)
+  : (
+    <Fraction
+      numerator={currentQuestion.fraction2.numerator}
+      denominator={currentQuestion.fraction2.denominator}
+      color="text-indigo-600"
+      size="xl"
+    />
+  )
+}
             <span className="text-3xl font-bold text-gray-400">=</span>
-            <span className="inline-flex flex-col items-center">
-              <input
-                type="number"
-                value={numerator}
-                onChange={(e) => setNumerator(e.target.value)}
-                placeholder="?"
-                className={`fraction-box ${shakeBox ? 'animate-shake' : ''}`}
-                min="0"
-              />
-              <span className="block w-full border-t-2 border-amber-400 my-0.5" />
-              <input
-                type="number"
-                value={denominator}
-                onChange={(e) => setDenominator(e.target.value)}
-                placeholder="?"
-                className={`fraction-box ${shakeBox ? 'animate-shake' : ''}`}
-                min="1"
-              />
-            </span>
+            <div className="flex items-center gap-3">
+
+              {currentQuestion.correctAnswer.denominator === 1 ? (
+                /* Whole number answer only */
+                <input
+                  type="number"
+                  value={whole}
+                  onChange={(e) => setWhole(e.target.value)}
+                  placeholder="?"
+                  className="w-16 h-16 text-center text-2xl font-bold border-2 border-indigo-300 rounded-xl bg-indigo-50 shadow-md focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-300"
+                />
+              ) : (
+                <>
+                  {/* WHOLE NUMBER */}
+                  <input
+                    type="number"
+                    value={whole}
+                    onChange={(e) => setWhole(e.target.value)}
+                    placeholder="0"
+                    className="w-16 h-[100px] text-center text-2xl font-bold border-2 border-indigo-300 rounded-xl bg-indigo-50 shadow-md focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-300"
+                  />
+
+                  {/* FRACTION */}
+                  <div className="flex flex-col items-center shadow-md rounded-xl overflow-hidden w-16">
+                    <input
+                      type="number"
+                      value={numerator}
+                      onChange={(e) => setNumerator(e.target.value)}
+                      placeholder="?"
+                      className="w-full h-12 text-center text-xl font-bold border-2 border-indigo-300 border-b-0 rounded-t-xl bg-indigo-50 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-300"
+                    />
+                    <div className="w-full h-0.5 bg-indigo-400" />
+                    <input
+                      type="number"
+                      value={denominator}
+                      onChange={(e) => setDenominator(e.target.value)}
+                      placeholder="?"
+                      className="w-full h-12 text-center text-xl font-bold border-2 border-indigo-300 border-t-0 rounded-b-xl bg-indigo-50 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-300"
+                    />
+                  </div>
+                </>
+              )}
+
+            </div>
           </div>
         </div>
 
@@ -944,7 +1198,9 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
           disabled={
             needsSimplify
               ? !simpNumerator || !simpDenominator
-              : !numerator || !denominator
+              : currentQuestion.correctAnswer.denominator === 1
+                ? !whole
+                : !numerator || !denominator
           }
           className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -1006,26 +1262,23 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
           <div className="card mb-6 bg-indigo-50">
             <h4 className="text-lg text-indigo-700 mb-3">The correct answer:</h4>
             <div className="flex items-center justify-center gap-4">
-              <Fraction
-                numerator={currentQuestion.fraction1.numerator}
-                denominator={currentQuestion.fraction1.denominator}
-                color="text-indigo-600"
-                size="lg"
-              />
+              {renderMixedAnswer(
+                currentQuestion.fraction1.numerator,
+                currentQuestion.fraction1.denominator,
+                'text-indigo-600'
+              )}
               <span className="text-2xl font-bold text-gray-400">×</span>
-              <Fraction
-                numerator={currentQuestion.fraction2.numerator}
-                denominator={currentQuestion.fraction2.denominator}
-                color="text-indigo-600"
-                size="lg"
-              />
+              {renderMixedAnswer(
+                currentQuestion.fraction2.numerator,
+                currentQuestion.fraction2.denominator,
+                'text-indigo-600'
+              )}
               <span className="text-2xl font-bold text-gray-400">=</span>
-              <Fraction
-                numerator={currentQuestion.correctAnswer.numerator}
-                denominator={currentQuestion.correctAnswer.denominator}
-                color="text-green-600"
-                size="lg"
-              />
+              {renderMixedAnswer(
+                currentQuestion.correctAnswer.numerator,
+                currentQuestion.correctAnswer.denominator,
+                'text-green-600'
+              )}
             </div>
           </div>
         )}

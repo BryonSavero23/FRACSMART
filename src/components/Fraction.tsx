@@ -23,15 +23,34 @@ export function Fraction({
   size = 'lg',
   className = '',
 }: FractionProps) {
+
+  // 👉 Convert to number (because props can be string)
+  const num = Number(numerator);
+  const den = Number(denominator);
+
+  // ✅ If whole number → just show numerator
+  if (den === 1) {
+    return (
+      <span
+        className={`inline-flex items-center font-bold ${sizes[size]} ${color} ${className}`}
+        aria-label={`${num}`}
+        role="math"
+      >
+        {num}
+      </span>
+    );
+  }
+
+  // 👉 Normal fraction
   return (
     <span
       className={`inline-flex flex-col items-center font-bold leading-none ${className}`}
-      aria-label={`${numerator} over ${denominator}`}
+      aria-label={`${num} over ${den}`}
       role="math"
     >
-      <span className={`${sizes[size]} ${color}`}>{numerator}</span>
+      <span className={`${sizes[size]} ${color}`}>{num}</span>
       <span className={`block w-full border-t-2 border-current my-0.5 ${color}`} />
-      <span className={`${sizes[size]} ${color}`}>{denominator}</span>
+      <span className={`${sizes[size]} ${color}`}>{den}</span>
     </span>
   );
 }
