@@ -463,59 +463,15 @@ function buildBasicsContent(c: BasicsContent): React.ReactNode {
   );
 }
 
-function buildAreaModelContent(c: AreaModelContent): React.ReactNode {
+function buildAreaModelContent(_c: AreaModelContent): React.ReactNode {
   return (
-    <div className="space-y-6">
-      <div className="bg-amber-50 rounded-xl p-6">
-        <h3 className="text-xl text-amber-700 mb-4">{c.sectionTitle}</h3>
-        <p className="text-lg text-gray-700 mb-4">{c.introParagraph}</p>
-        <div className="bg-white rounded-xl p-6">
-          <p className="text-gray-600 mb-4">
-            Let&apos;s multiply{' '}
-            <Fraction numerator={2} denominator={3} color="text-indigo-600" size="xs" className="mx-1" />
-            {' '}&times;{' '}
-            <Fraction numerator={3} denominator={4} color="text-indigo-600" size="xs" className="mx-1" />
-            :
-          </p>
-          <AreaModel f1Num={2} f1Den={3} f2Num={3} f2Den={4} />
-        </div>
-      </div>
-      <div className="bg-indigo-50 rounded-xl p-6">
-        <h3 className="text-xl text-indigo-700 mb-4">{c.howToTitle}</h3>
-        <div className="space-y-4">
-          <div className="flex items-start gap-4">
-            <div className="w-8 h-8 bg-indigo-200 rounded-lg flex-shrink-0" />
-            <div>
-              <p className="font-semibold text-gray-700">{c.lightBlueLabel}</p>
-              <p className="text-gray-600">{c.lightBlueDesc}</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-4">
-            <div className="w-8 h-8 bg-amber-400 rounded-lg flex-shrink-0" />
-            <div>
-              <p className="font-semibold text-gray-700">{c.yellowLabel}</p>
-              <p className="text-gray-600">{c.yellowDesc}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="bg-green-50 rounded-xl p-6">
-        <h3 className="text-xl text-green-700 mb-4">{c.tryTitle}</h3>
-        <p className="text-gray-700 mb-4">
-          <Fraction numerator={1} denominator={2} color="text-indigo-600" size="xs" className="mx-1" />
-          {' '}&times;{' '}
-          <Fraction numerator={2} denominator={3} color="text-indigo-600" size="xs" className="mx-1" />
-          {' '}= ?
-        </p>
-        <AreaModel f1Num={1} f1Den={2} f2Num={2} f2Den={3} />
-        <p className="mt-4 text-center text-lg font-semibold text-green-600 flex items-center justify-center gap-2">
-          Answer:{' '}
-          <Fraction numerator={2} denominator={6} color="text-green-600" size="sm" className="mx-1" />
-          ={' '}
-          <Fraction numerator={1} denominator={3} color="text-green-600" size="sm" className="mx-1" />
-          (simplified)
-        </p>
-      </div>
+    <div className="w-full">
+      <img
+        src="/lesson2.png"
+        alt="Area Model Visuals"
+        style={{ aspectRatio: '1024 / 683' }}
+        className="w-full rounded-2xl shadow-md object-cover"
+      />
     </div>
   );
 }
@@ -758,122 +714,14 @@ function buildExamplesContent(c: ExamplesContent): React.ReactNode {
   );
 }
 
-function buildMistakesContent(c: MistakesContent): React.ReactNode {
-  const mistakeTitles = [c.mistake1Title, c.mistake2Title, c.mistake3Title, c.mistake4Title];
-  const wrongNotes = ['(Adding: 1+1=2, 2+3=5)', '(Only multiplied bottoms)', '(Only multiplied tops)', '(Can be simplified)'];
-  const correctNotes = ['(Multiplying: 1\u00d71=1, 2\u00d73=6)', '(Multiply both tops AND bottoms)', '(Multiply both tops AND bottoms)', '(Always simplify your answer)'];
-
+function buildMistakesContent(_c: MistakesContent): React.ReactNode {
   return (
-    <div className="space-y-6">
-      <div className="bg-red-50 rounded-xl p-6 border-2 border-red-200">
-        <h3 className="text-xl text-red-700 mb-4 flex items-center gap-2"><AlertTriangle className="w-6 h-6" />{mistakeTitles[0]}</h3>
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="bg-red-100 rounded-xl p-4 border-2 border-red-300">
-            <p className="text-sm text-red-600 font-semibold mb-3">Wrong!</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Fraction numerator={1} denominator={2} color="text-gray-700" size="sm" /><span className="font-bold">&times;</span>
-              <Fraction numerator={1} denominator={3} color="text-gray-700" size="sm" /><span className="font-bold">=</span>
-              <span className="line-through text-red-600 font-bold text-lg"><Fraction numerator={2} denominator={5} color="text-red-600" size="sm" /></span>
-            </div>
-            <p className="text-sm text-red-500 mt-2">{wrongNotes[0]}</p>
-          </div>
-          <div className="bg-green-100 rounded-xl p-4 border-2 border-green-300">
-            <p className="text-sm text-green-600 font-semibold mb-3">Correct!</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Fraction numerator={1} denominator={2} color="text-gray-700" size="sm" /><span className="font-bold">&times;</span>
-              <Fraction numerator={1} denominator={3} color="text-gray-700" size="sm" /><span className="font-bold">=</span>
-              <Fraction numerator={1} denominator={6} color="text-green-700" size="sm" />
-            </div>
-            <p className="text-sm text-green-500 mt-2">{correctNotes[0]}</p>
-          </div>
-        </div>
-      </div>
-      <div className="bg-red-50 rounded-xl p-6 border-2 border-red-200">
-        <h3 className="text-xl text-red-700 mb-4 flex items-center gap-2"><AlertTriangle className="w-6 h-6" />{mistakeTitles[1]}</h3>
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="bg-red-100 rounded-xl p-4 border-2 border-red-300">
-            <p className="text-sm text-red-600 font-semibold mb-3">Wrong!</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Fraction numerator={2} denominator={3} color="text-gray-700" size="sm" /><span className="font-bold">&times;</span>
-              <Fraction numerator={1} denominator={4} color="text-gray-700" size="sm" /><span className="font-bold">=</span>
-              <span className="line-through text-red-600"><Fraction numerator={2} denominator={12} color="text-red-600" size="sm" /></span>
-            </div>
-            <p className="text-sm text-red-500 mt-2">{wrongNotes[1]}</p>
-          </div>
-          <div className="bg-green-100 rounded-xl p-4 border-2 border-green-300">
-            <p className="text-sm text-green-600 font-semibold mb-3">Correct!</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Fraction numerator={2} denominator={3} color="text-gray-700" size="sm" /><span className="font-bold">&times;</span>
-              <Fraction numerator={1} denominator={4} color="text-gray-700" size="sm" /><span className="font-bold">=</span>
-              <Fraction numerator={2} denominator={12} color="text-green-700" size="sm" /><span>=</span>
-              <Fraction numerator={1} denominator={6} color="text-green-700" size="sm" />
-            </div>
-            <p className="text-sm text-green-500 mt-2">{correctNotes[1]}</p>
-          </div>
-        </div>
-      </div>
-      <div className="bg-red-50 rounded-xl p-6 border-2 border-red-200">
-        <h3 className="text-xl text-red-700 mb-4 flex items-center gap-2"><AlertTriangle className="w-6 h-6" />{mistakeTitles[2]}</h3>
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="bg-red-100 rounded-xl p-4 border-2 border-red-300">
-            <p className="text-sm text-red-600 font-semibold mb-3">Wrong!</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Fraction numerator={1} denominator={2} color="text-gray-700" size="sm" /><span className="font-bold">&times;</span>
-              <Fraction numerator={2} denominator={3} color="text-gray-700" size="sm" /><span className="font-bold">=</span>
-              <span className="line-through text-red-600"><Fraction numerator={2} denominator={5} color="text-red-600" size="sm" /></span>
-            </div>
-            <p className="text-sm text-red-500 mt-2">{wrongNotes[2]}</p>
-          </div>
-          <div className="bg-green-100 rounded-xl p-4 border-2 border-green-300">
-            <p className="text-sm text-green-600 font-semibold mb-3">Correct!</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Fraction numerator={1} denominator={2} color="text-gray-700" size="sm" /><span className="font-bold">&times;</span>
-              <Fraction numerator={2} denominator={3} color="text-gray-700" size="sm" /><span className="font-bold">=</span>
-              <Fraction numerator={2} denominator={6} color="text-green-700" size="sm" /><span>=</span>
-              <Fraction numerator={1} denominator={3} color="text-green-700" size="sm" />
-            </div>
-            <p className="text-sm text-green-500 mt-2">{correctNotes[2]}</p>
-          </div>
-        </div>
-      </div>
-      <div className="bg-red-50 rounded-xl p-6 border-2 border-red-200">
-        <h3 className="text-xl text-red-700 mb-4 flex items-center gap-2"><AlertTriangle className="w-6 h-6" />{mistakeTitles[3]}</h3>
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="bg-yellow-100 rounded-xl p-4 border-2 border-yellow-300">
-            <p className="text-sm text-yellow-600 font-semibold mb-3">Not Simplified</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Fraction numerator={2} denominator={3} color="text-gray-700" size="sm" /><span className="font-bold">&times;</span>
-              <Fraction numerator={3} denominator={4} color="text-gray-700" size="sm" /><span className="font-bold">=</span>
-              <span className="line-through text-yellow-600"><Fraction numerator={6} denominator={12} color="text-yellow-700" size="sm" /></span>
-            </div>
-            <p className="text-sm text-yellow-500 mt-2">{wrongNotes[3]}</p>
-          </div>
-          <div className="bg-green-100 rounded-xl p-4 border-2 border-green-300">
-            <p className="text-sm text-green-600 font-semibold mb-3">Correct!</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Fraction numerator={2} denominator={3} color="text-gray-700" size="sm" /><span className="font-bold">&times;</span>
-              <Fraction numerator={3} denominator={4} color="text-gray-700" size="sm" /><span className="font-bold">=</span>
-              <Fraction numerator={6} denominator={12} color="text-green-700" size="sm" /><span>=</span>
-              <Fraction numerator={1} denominator={2} color="text-green-700" size="sm" />
-            </div>
-            <p className="text-sm text-green-500 mt-2">{correctNotes[3]}</p>
-          </div>
-        </div>
-      </div>
-      <div className="bg-indigo-50 rounded-xl p-6">
-        <h3 className="text-xl text-indigo-700 mb-4 flex items-center gap-2">
-          <CheckCircle className="w-6 h-6" />
-          {c.tipsTitle}
-        </h3>
-        <ul className="space-y-3 text-gray-700">
-          {c.tips.map((tip, i) => (
-            <li key={i} className="flex items-start gap-3">
-              <span className="w-6 h-6 bg-indigo-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">!</span>
-              <span>{tip}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
+    <div className="flex justify-center">
+      <img
+        src="/common-mistakes.png"
+        alt="5 Common Mistakes in Multiplying Fractions"
+        className="w-full max-w-2xl rounded-2xl shadow-md"
+      />
     </div>
   );
 }
