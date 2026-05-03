@@ -772,7 +772,12 @@ export const modules: LessonModule[] = buildModules([
 
 // ─── LearnMode component ───────────────────────────────────────────────────────
 
-export function LearnMode() {
+interface LearnModeProps {
+  onBack?: () => void;
+  onNext?: () => void;
+}
+
+export function LearnMode({ onBack, onNext }: LearnModeProps = {}) {
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [lessonModules, setLessonModules] = useState<LessonModule[]>(modules);
 
@@ -784,6 +789,17 @@ export function LearnMode() {
 
   return (
    <div className="max-w-7xl mx-auto p-4">
+      {/* Back button */}
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-indigo-600 hover:text-indigo-700 mb-6 font-semibold"
+        >
+          <ChevronDown className="w-5 h-5 rotate-90" />
+          Back to Home
+        </button>
+      )}
+
       <div className="text-center mb-8">
         <h1 className="text-3xl text-indigo-700 mb-2">Learn Fraction Multiplication</h1>
         <p className="text-gray-600">Tap each lesson to explore and learn!</p>
@@ -820,6 +836,20 @@ export function LearnMode() {
           </div>
         ))}
       </div>
+
+      {/* Continue to Practice button */}
+      {onNext && (
+        <div className="mt-8 flex justify-end">
+          <button
+            onClick={onNext}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl text-white font-bold text-sm shadow-md hover:opacity-90 active:scale-95 transition-all"
+            style={{ backgroundColor: '#5C35A0' }}
+          >
+            Continue to Practice
+            <ChevronDown className="w-4 h-4 -rotate-90" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

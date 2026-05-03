@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Calculator, BookOpen, Gamepad2, BarChart3, LogOut } from 'lucide-react';
+import { Calculator, BookOpen, Gamepad2, BarChart3, LogOut, Star } from 'lucide-react';
 
 interface StudentNavProps {
   currentPage: string;
@@ -14,6 +14,7 @@ export function StudentNav({ currentPage, onNavigate }: StudentNavProps) {
     { id: 'home', label: 'Home', icon: Calculator },
     { id: 'learn', label: 'Learn', icon: BookOpen },
     { id: 'practice', label: 'Practice', icon: Gamepad2 },
+    { id: 'pretest', label: 'Quiz', icon: Star },
     { id: 'progress', label: 'My Progress', icon: BarChart3 },
   ];
 

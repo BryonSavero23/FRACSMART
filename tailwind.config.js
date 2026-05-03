@@ -8,6 +8,21 @@ export default {
         'body': ['Nunito', 'sans-serif'],
       },
       colors: {
+        'brand-purple': {
+          DEFAULT: '#5C35A0',
+          light: '#7B52C4',
+          dark: '#3E2070',
+        },
+        'brand-orange': {
+          DEFAULT: '#F5A623',
+          light: '#F7B84B',
+          dark: '#D4861B',
+        },
+        'navy': {
+          DEFAULT: '#1E1A3C',
+          light: '#2D2858',
+          dark: '#140F2A',
+        },
         'indigo': {
           50: '#eef2ff',
           100: '#e0e7ff',

@@ -8,6 +8,7 @@ import { Fraction } from './Fraction';
 interface SessionResultsProps {
   sessionId: string;
   onBack: () => void;
+  onContinueToPostTest?: () => void;
 }
 
 const misconceptionLabels: Record<string, string> = {
@@ -28,7 +29,7 @@ const misconceptionColors: Record<string, string> = {
   other: '#8b5cf6',
 };
 
-export function SessionResults({ sessionId, onBack }: SessionResultsProps) {
+export function SessionResults({ sessionId, onBack, onContinueToPostTest }: SessionResultsProps) {
   const { student } = useAuth();
   const [answers, setAnswers] = useState<SessionAnswer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -112,14 +113,6 @@ export function SessionResults({ sessionId, onBack }: SessionResultsProps) {
 
   return (
     <div className="max-w-2xl mx-auto p-4">
-      <button
-        onClick={onBack}
-        className="flex items-center gap-2 text-indigo-600 hover:text-indigo-700 mb-6 font-semibold"
-      >
-        <ArrowLeft className="w-5 h-5" />
-        Back to Home
-      </button>
-
       <div className="text-center mb-8">
         <div className="inline-flex items-center justify-center w-20 h-20 bg-amber-400 rounded-3xl mb-4 shadow-xl">
           <Trophy className="w-10 h-10 text-white" />
@@ -269,6 +262,27 @@ export function SessionResults({ sessionId, onBack }: SessionResultsProps) {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Navigation row */}
+      <div className="flex items-center justify-between mt-6 flex-wrap gap-3">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-semibold"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          Back to Home
+        </button>
+        {onContinueToPostTest && (
+          <button
+            onClick={onContinueToPostTest}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl text-white font-bold text-sm shadow-md hover:opacity-90 active:scale-95 transition-all"
+            style={{ backgroundColor: '#F5A623' }}
+          >
+            Continue to Post-Test
+            <ArrowLeft className="w-4 h-4 rotate-180" />
+          </button>
+        )}
       </div>
     </div>
   );
