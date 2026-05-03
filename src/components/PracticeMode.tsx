@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Gamepad2, Star, Flame, CheckCircle, XCircle, ArrowRight, Lock, Trophy } from 'lucide-react';
-import { generateQuestion, detectMisconception, getWordProblem, Question, MisconceptionResult } from '../lib/misconceptionDetection';
+import { detectMisconception, getWordProblem, Question, MisconceptionResult } from '../lib/misconceptionDetection';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Fraction } from './Fraction';
@@ -117,6 +117,78 @@ const INTERMEDIATE_QUESTIONS = [
     fraction2: { numerator: 3, denominator: 4 },
     correctAnswer: { numerator: 57, denominator: 20 },
   },
+];
+
+type AdvStepLayout = 'frac-x-frac' | 'frac-x-whole' | 'mixed-single' | 'mixed-x-mixed' | 'fraction' | 'mixed';
+interface AdvStep { label: string; layout: AdvStepLayout; values: number[]; }
+interface AdvQuestion {
+  scenario: string | null;
+  displayLeft: { whole: number; numerator: number; denominator: number };
+  displayRight: { whole: number; numerator: number; denominator: number };
+  steps: (AdvStep | null)[];
+}
+
+const ADVANCED_QUESTIONS_DATA: AdvQuestion[] = [
+  { scenario: null, displayLeft: { whole: 4, numerator: 2, denominator: 8 }, displayRight: { whole: 1, numerator: 3, denominator: 4 }, steps: [
+    { label: 'Step 1: Convert to improper fractions', layout: 'frac-x-frac', values: [34, 8, 7, 4] },
+    { label: 'Step 2: Multiply numerators and denominators', layout: 'fraction', values: [238, 32] },
+    { label: 'Step 3: Simplify your answer', layout: 'fraction', values: [119, 16] },
+    { label: 'Step 4: Convert to mixed number', layout: 'mixed', values: [7, 7, 16] },
+  ]},
+  { scenario: null, displayLeft: { whole: 2, numerator: 3, denominator: 5 }, displayRight: { whole: 3, numerator: 1, denominator: 2 }, steps: [
+    { label: 'Step 1: Convert to improper fractions', layout: 'frac-x-frac', values: [13, 5, 7, 2] },
+    { label: 'Step 2: Multiply numerators and denominators', layout: 'fraction', values: [91, 10] },
+    { label: 'Step 3: Simplify your answer', layout: 'fraction', values: [91, 10] },
+    { label: 'Step 4: Convert to mixed number', layout: 'mixed', values: [9, 1, 10] },
+  ]},
+  { scenario: null, displayLeft: { whole: 3, numerator: 5, denominator: 7 }, displayRight: { whole: 8, numerator: 1, denominator: 2 }, steps: [
+    { label: 'Step 1: Convert to improper fractions', layout: 'frac-x-frac', values: [26, 7, 17, 2] },
+    { label: 'Step 2: Multiply numerators and denominators', layout: 'fraction', values: [442, 14] },
+    { label: 'Step 3: Simplify your answer', layout: 'fraction', values: [221, 7] },
+    { label: 'Step 4: Convert to mixed number', layout: 'mixed', values: [31, 4, 7] },
+  ]},
+  { scenario: null, displayLeft: { whole: 2, numerator: 2, denominator: 5 }, displayRight: { whole: 7, numerator: 1, denominator: 4 }, steps: [
+    { label: 'Step 1: Convert to improper fractions', layout: 'frac-x-frac', values: [12, 5, 29, 4] },
+    { label: 'Step 2: Multiply numerators and denominators', layout: 'fraction', values: [348, 20] },
+    { label: 'Step 3: Simplify your answer', layout: 'fraction', values: [87, 5] },
+    { label: 'Step 4: Convert to mixed number', layout: 'mixed', values: [17, 2, 5] },
+  ]},
+  { scenario: null, displayLeft: { whole: 4, numerator: 1, denominator: 2 }, displayRight: { whole: 9, numerator: 4, denominator: 8 }, steps: [
+    { label: 'Step 1: Convert to improper fractions', layout: 'frac-x-frac', values: [9, 2, 76, 8] },
+    { label: 'Step 2: Multiply numerators and denominators', layout: 'fraction', values: [684, 16] },
+    { label: 'Step 3: Simplify your answer', layout: 'fraction', values: [171, 4] },
+    { label: 'Step 4: Convert to mixed number', layout: 'mixed', values: [42, 3, 4] },
+  ]},
+  { scenario: 'A baker uses 3/4 cup of sugar for one cake. She makes 3 cakes. How many cups of sugar does she use?', displayLeft: { whole: 0, numerator: 3, denominator: 4 }, displayRight: { whole: 3, numerator: 0, denominator: 1 }, steps: [
+    { label: 'Step 1: Write the equation', layout: 'frac-x-whole', values: [3, 4, 3] },
+    { label: 'Step 2: Set up as fractions', layout: 'frac-x-frac', values: [3, 4, 3, 1] },
+    { label: 'Step 3: Multiply', layout: 'fraction', values: [9, 4] },
+    { label: 'Step 4: Convert to mixed number', layout: 'mixed', values: [2, 1, 4] },
+  ]},
+  { scenario: 'A rope is 3½ metres long. Tina uses 2/3 of the rope. How many metres does she use?', displayLeft: { whole: 3, numerator: 1, denominator: 2 }, displayRight: { whole: 0, numerator: 2, denominator: 3 }, steps: [
+    { label: 'Step 1: Write the mixed number', layout: 'mixed-single', values: [3, 1, 2] },
+    { label: 'Step 2: Convert and set up multiplication', layout: 'frac-x-frac', values: [7, 2, 2, 3] },
+    { label: 'Step 3: Multiply and simplify', layout: 'fraction', values: [7, 3] },
+    { label: 'Step 4: Convert to mixed number', layout: 'mixed', values: [2, 1, 3] },
+  ]},
+  { scenario: 'A container holds 1¾ litres of water. It is filled 2½ times. How many litres of water are there in total?', displayLeft: { whole: 1, numerator: 3, denominator: 4 }, displayRight: { whole: 2, numerator: 1, denominator: 2 }, steps: [
+    { label: 'Step 1: Write both mixed numbers', layout: 'mixed-x-mixed', values: [1, 3, 4, 2, 1, 2] },
+    { label: 'Step 2: Convert to improper fractions', layout: 'frac-x-frac', values: [7, 4, 5, 2] },
+    { label: 'Step 3: Multiply', layout: 'fraction', values: [35, 8] },
+    { label: 'Step 4: Convert to mixed number', layout: 'mixed', values: [4, 3, 8] },
+  ]},
+  { scenario: 'A cyclist travels 2/3 km in one round. He completes 5 rounds. What is the total distance travelled?', displayLeft: { whole: 0, numerator: 2, denominator: 3 }, displayRight: { whole: 5, numerator: 0, denominator: 1 }, steps: [
+    { label: 'Step 1: Write the equation', layout: 'frac-x-whole', values: [2, 3, 5] },
+    { label: 'Step 2: Set up as fractions', layout: 'frac-x-frac', values: [2, 3, 5, 1] },
+    { label: 'Step 3: Multiply', layout: 'fraction', values: [10, 3] },
+    { label: 'Step 4: Convert to mixed number', layout: 'mixed', values: [3, 1, 3] },
+  ]},
+  { scenario: 'Bryon saves 2/3 of his pocket money. He spends 1/2 of his savings. What fraction of his pocket money does he spend?', displayLeft: { whole: 0, numerator: 2, denominator: 3 }, displayRight: { whole: 0, numerator: 1, denominator: 2 }, steps: [
+    { label: 'Step 1: Write the equation', layout: 'frac-x-frac', values: [2, 3, 1, 2] },
+    { label: 'Step 2: Multiply', layout: 'fraction', values: [2, 6] },
+    { label: 'Step 3: Simplify', layout: 'fraction', values: [1, 3] },
+    null,
+  ]},
 ];
 
 type Difficulty = 'beginner' | 'intermediate' | 'advanced';
@@ -291,6 +363,13 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
   const [simplifyMessage, setSimplifyMessage] = useState('');
   const [simplifyType, setSimplifyType] = useState<'success' | 'warning' | 'error' | ''>('');
 
+  const [advQuestion, setAdvQuestion] = useState<AdvQuestion | null>(null);
+  const [advStep, setAdvStep] = useState(0);
+  const [advInputs, setAdvInputs] = useState<string[]>([]);
+  const [advWrong, setAdvWrong] = useState(false);
+  const [advDoneSteps, setAdvDoneSteps] = useState<number[]>([]);
+  const [advAllDone, setAdvAllDone] = useState(false);
+
   const scoreRef = useRef(0);
   const sessionIdRef = useRef<string | null>(null);
   const difficultyRef = useRef<Difficulty>('beginner');
@@ -372,12 +451,14 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
       setQuestionNum(existing.questions_answered + 1);
       setGameState('playing');
       if (diff === 'beginner') {
-  setCurrentQuestion(BEGINNER_QUESTIONS[0]);
-} else if (diff === 'intermediate') {
-  setCurrentQuestion(INTERMEDIATE_QUESTIONS[0]);
-} else {
-  setCurrentQuestion(generateQuestion(diff));
-}
+        setCurrentQuestion(BEGINNER_QUESTIONS[0]);
+      } else if (diff === 'intermediate') {
+        setCurrentQuestion(INTERMEDIATE_QUESTIONS[0]);
+      } else {
+        const qIdx = Math.min(existing.questions_answered, ADVANCED_QUESTIONS_DATA.length - 1);
+        setAdvQuestion(ADVANCED_QUESTIONS_DATA[qIdx]);
+        setAdvStep(0); setAdvInputs([]); setAdvWrong(false); setAdvDoneSteps([]); setAdvAllDone(false);
+      }
       return;
     }
     difficultyRef.current = diff;
@@ -392,12 +473,13 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
     setNumerator('');
     setDenominator('');
     if (diff === 'beginner') {
-  setCurrentQuestion(BEGINNER_QUESTIONS[0]);
-} else if (diff === 'intermediate') {
-  setCurrentQuestion(INTERMEDIATE_QUESTIONS[0]);
-} else {
-  setCurrentQuestion(generateQuestion(diff));
-}
+      setCurrentQuestion(BEGINNER_QUESTIONS[0]);
+    } else if (diff === 'intermediate') {
+      setCurrentQuestion(INTERMEDIATE_QUESTIONS[0]);
+    } else {
+      setAdvQuestion(ADVANCED_QUESTIONS_DATA[0]);
+      setAdvStep(0); setAdvInputs([]); setAdvWrong(false); setAdvDoneSteps([]); setAdvAllDone(false);
+    }
 
     if (student) {
       const { data } = await supabase
@@ -639,6 +721,47 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
     }
   };
 
+  const completeAdvancedQuestion = async () => {
+    const pts = 20;
+    celebrateCorrect();
+    const newScore = scoreRef.current + pts;
+    scoreRef.current = newScore;
+    setScore(newScore);
+    setAdvAllDone(true);
+    const sid = sessionIdRef.current;
+    if (sid) {
+      await supabase.from('sessions').update({
+        score: newScore,
+        questions_answered: questionNum,
+        correct_answers: questionNum,
+      }).eq('id', sid);
+    }
+  };
+
+  const checkAdvancedStep = async () => {
+    if (!advQuestion) return;
+    const step = advQuestion.steps[advStep];
+    if (!step) return;
+    const isCorrect = step.values.every((v, i) => parseInt(advInputs[i] ?? '') === v);
+    if (!isCorrect) {
+      setAdvWrong(true);
+      setShakeBox(true);
+      setTimeout(() => setShakeBox(false), 600);
+      return;
+    }
+    setAdvWrong(false);
+    const newDone = [...advDoneSteps, advStep];
+    setAdvDoneSteps(newDone);
+    let nextIdx = advStep + 1;
+    while (nextIdx < 4 && advQuestion.steps[nextIdx] === null) nextIdx++;
+    if (nextIdx >= 4) {
+      await completeAdvancedQuestion();
+    } else {
+      setAdvStep(nextIdx);
+      setAdvInputs([]);
+    }
+  };
+
   const nextQuestion = () => {
     if (questionNum >= getTotalQuestions(difficultyRef.current)) {
       endGame();
@@ -657,12 +780,13 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
     setFeedback(null);
     setGameState('playing');
     if (difficultyRef.current === 'beginner') {
-  setCurrentQuestion(BEGINNER_QUESTIONS[questionNum]);
-} else if (difficultyRef.current === 'intermediate') {
-  setCurrentQuestion(INTERMEDIATE_QUESTIONS[questionNum]);
-} else {
-  setCurrentQuestion(generateQuestion(difficultyRef.current));
-}
+      setCurrentQuestion(BEGINNER_QUESTIONS[questionNum]);
+    } else if (difficultyRef.current === 'intermediate') {
+      setCurrentQuestion(INTERMEDIATE_QUESTIONS[questionNum]);
+    } else {
+      setAdvQuestion(ADVANCED_QUESTIONS_DATA[questionNum]);
+      setAdvStep(0); setAdvInputs([]); setAdvWrong(false); setAdvDoneSteps([]); setAdvAllDone(false);
+    }
   };
 
   const endGame = async () => {
@@ -1296,10 +1420,151 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
     );
   };
 
+  const renderAdvancedPlaying = () => {
+    if (!advQuestion) return null;
+
+    const updateInput = (idx: number, val: string) =>
+      setAdvInputs(prev => { const n = [...prev]; while (n.length <= idx) n.push(''); n[idx] = val; return n; });
+
+    const renderBox = (idx: number, isDone: boolean, doneVal: number) =>
+      isDone ? (
+        <span className="w-12 h-10 inline-flex items-center justify-center font-bold text-lg text-green-700 bg-green-100 rounded-lg border border-green-300">{doneVal}</span>
+      ) : (
+        <input type="number" value={advInputs[idx] ?? ''} onChange={e => updateInput(idx, e.target.value)}
+          className={`w-12 h-10 text-center text-lg font-bold border-2 rounded-lg focus:outline-none focus:ring-2 ${advWrong ? 'border-red-400 bg-red-50 focus:ring-red-200' : 'border-indigo-300 bg-indigo-50 focus:ring-indigo-200'}`} />
+      );
+
+    const renderFracPair = (isDone: boolean, nVal: number, dVal: number, nIdx: number, dIdx: number) => (
+      <div className="flex flex-col items-center gap-0.5">
+        {renderBox(nIdx, isDone, nVal)}
+        <div className={`w-10 h-0.5 ${isDone ? 'bg-green-400' : 'bg-indigo-400'}`} />
+        {renderBox(dIdx, isDone, dVal)}
+      </div>
+    );
+
+    const renderStepContent = (step: AdvStep, isDone: boolean) => {
+      const { layout, values: v } = step;
+      const times = <span className="text-xl font-bold text-gray-500">×</span>;
+      if (layout === 'fraction') return <div className="flex justify-center">{renderFracPair(isDone, v[0], v[1], 0, 1)}</div>;
+      if (layout === 'mixed' || layout === 'mixed-single') return (
+        <div className="flex items-center justify-center gap-2">{renderBox(0, isDone, v[0])}{renderFracPair(isDone, v[1], v[2], 1, 2)}</div>
+      );
+      if (layout === 'frac-x-frac') return (
+        <div className="flex items-center justify-center gap-4">{renderFracPair(isDone, v[0], v[1], 0, 1)}{times}{renderFracPair(isDone, v[2], v[3], 2, 3)}</div>
+      );
+      if (layout === 'frac-x-whole') return (
+        <div className="flex items-center justify-center gap-4">{renderFracPair(isDone, v[0], v[1], 0, 1)}{times}{renderBox(2, isDone, v[2])}</div>
+      );
+      if (layout === 'mixed-x-mixed') return (
+        <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center gap-1">{renderBox(0, isDone, v[0])}{renderFracPair(isDone, v[1], v[2], 1, 2)}</div>
+          {times}
+          <div className="flex items-center gap-1">{renderBox(3, isDone, v[3])}{renderFracPair(isDone, v[4], v[5], 4, 5)}</div>
+        </div>
+      );
+      return null;
+    };
+
+    const renderMixedDisp = (d: { whole: number; numerator: number; denominator: number }) => {
+      if (d.whole && d.numerator) return (
+        <div className="flex items-center gap-1">
+          <span className="text-3xl font-bold text-indigo-600">{d.whole}</span>
+          <Fraction numerator={d.numerator} denominator={d.denominator} color="text-indigo-600" size="xl" />
+        </div>
+      );
+      if (d.whole && !d.numerator) return <span className="text-3xl font-bold text-indigo-600">{d.whole}</span>;
+      return <Fraction numerator={d.numerator} denominator={d.denominator} color="text-indigo-600" size="xl" />;
+    };
+
+    const currentStep = advQuestion.steps[advStep];
+    const allFilled = !advAllDone && currentStep
+      ? currentStep.values.every((_, i) => (advInputs[i] ?? '') !== '')
+      : true;
+
+    return (
+      <div className="max-w-2xl mx-auto p-4 relative">
+        {showPoints && <div className="absolute right-6 top-3 points-pop z-50">+{earnedPoints} POINTS ⭐</div>}
+
+        <div className="flex items-center justify-between mb-5 gap-3">
+          <div className="flex items-center gap-3">
+            <button onClick={goBackToMenu} className="bg-white shadow px-4 py-2 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition">← Back</button>
+            <div className="bg-indigo-100 px-4 py-2 rounded-xl">
+              <span className="text-sm text-indigo-600">Question</span>
+              <span className="ml-2 text-xl font-bold text-indigo-700">{questionNum}/{getTotalQuestions(difficultyRef.current)}</span>
+            </div>
+            <div className="bg-amber-100 px-4 py-2 rounded-xl">
+              <span className="text-sm text-amber-600">Score</span>
+              <span className="ml-2 text-xl font-bold text-amber-700">{score}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-orange-100 px-4 py-2 rounded-xl">
+            <Flame className="w-5 h-5 text-orange-500" />
+            <span className="text-xl font-bold text-orange-600">{streak}</span>
+          </div>
+        </div>
+
+        {advQuestion.scenario ? (
+          <div className="card mb-4 bg-blue-50 border-2 border-blue-200">
+            <p className="text-gray-700 leading-relaxed font-medium">{advQuestion.scenario}</p>
+          </div>
+        ) : (
+          <div className="card mb-4 text-center">
+            <p className="text-sm text-gray-500 mb-3">Multiply the fractions:</p>
+            <div className="flex items-center justify-center gap-5">
+              {renderMixedDisp(advQuestion.displayLeft)}
+              <span className="text-3xl font-bold text-gray-400">×</span>
+              {renderMixedDisp(advQuestion.displayRight)}
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-3 mb-4">
+          {advQuestion.steps.map((step, idx) => {
+            if (!step) return null;
+            const isDone = advDoneSteps.includes(idx);
+            const isActive = idx === advStep && !advAllDone;
+            const isLocked = !isDone && !isActive;
+            return (
+              <div key={idx} className={`rounded-2xl border-2 p-4 transition-all ${isDone ? 'bg-green-50 border-green-200' : isActive ? 'bg-white border-indigo-300 shadow-md' : 'bg-gray-50 border-gray-200 opacity-50'}`}>
+                <div className="flex items-center gap-2 mb-3">
+                  {isDone ? <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" /> : isLocked ? <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" /> : <div className="w-5 h-5 rounded-full bg-indigo-500 flex-shrink-0" />}
+                  <span className={`font-semibold text-sm ${isDone ? 'text-green-700' : isActive ? 'text-indigo-700' : 'text-gray-400'}`}>{step.label}</span>
+                </div>
+                {(isDone || isActive) && <div className="py-2">{renderStepContent(step, isDone)}</div>}
+              </div>
+            );
+          })}
+        </div>
+
+        {advWrong && <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 font-semibold text-sm text-center">❌ Not quite! Check your working and try again.</div>}
+
+        {advAllDone && (
+          <div className="mb-4 p-4 bg-green-50 border-2 border-green-300 rounded-2xl text-center">
+            <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-1" />
+            <p className="text-green-700 font-bold text-lg">Excellent work! +20 points 🌟</p>
+          </div>
+        )}
+
+        {advAllDone ? (
+          <button onClick={nextQuestion} className="btn-primary w-full flex items-center justify-center gap-2">
+            {questionNum >= getTotalQuestions(difficultyRef.current) ? 'See Results' : 'Next Question'}
+            <ArrowRight className="w-5 h-5" />
+          </button>
+        ) : (
+          <button onClick={checkAdvancedStep} disabled={!allFilled}
+            className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+            Check Step {advStep + 1} <ArrowRight className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+    );
+  };
+
   return (
     <>
       {gameState === 'menu' && renderMenu()}
-      {gameState === 'playing' && renderPlaying()}
+      {gameState === 'playing' && difficultyRef.current !== 'advanced' && renderPlaying()}
+      {gameState === 'playing' && difficultyRef.current === 'advanced' && renderAdvancedPlaying()}
       {gameState === 'feedback' && renderFeedback()}
     </>
   );
