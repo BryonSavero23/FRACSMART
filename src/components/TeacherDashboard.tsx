@@ -3,17 +3,22 @@ import {
   LayoutDashboard, Users, BarChart3, LogOut,
   Calculator, Download, X, ChevronUp, ChevronDown,
   AlertTriangle, TrendingUp, Star, FileText,
-  Brain, Loader2,
+  Brain, Loader2, Activity, Trophy, Target, Calendar,
 } from 'lucide-react';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, BarChart, Bar, Cell,
+} from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
 import { MockStudent } from '../data/mockTeacherData';
 import { supabase } from '../lib/supabase';
+import type { Session, SessionAnswer } from '../lib/supabase';
 import type { MisconceptionType } from '../lib/misconceptionTypes';
-import { MISCONCEPTION_LABELS, MISCONCEPTION_TYPES_LIST } from '../lib/misconceptionTypes';
+import { MISCONCEPTION_LABELS, MISCONCEPTION_TYPES_LIST, MISCONCEPTION_COLORS } from '../lib/misconceptionTypes';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type Tab = 'overview' | 'heatmap';
+type Tab = 'overview' | 'heatmap' | 'practice';
 
 function getStatus(pre: number, post: number): MockStudent['status'] {
   if (pre === 0 && post === 0) return 'Not Started';
@@ -68,6 +73,7 @@ function TeacherSidebar({ activeTab, setActiveTab, onLogout, teacherName }: Teac
   const NAV = [
     { id: 'overview' as Tab, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'heatmap' as Tab, label: 'Heatmap', icon: BarChart3 },
+    { id: 'practice' as Tab, label: "Students' Practice", icon: Activity },
   ];
 
   return (
@@ -467,6 +473,248 @@ function HeatmapTab({ students }: { students: MockStudent[] }) {
   );
 }
 
+// ─── Practice Progress Tab ───────────────────────────────────────────────────
+
+interface PracticeProgressTabProps {
+  students: MockStudent[];
+}
+
+function PracticeProgressTab({ students }: PracticeProgressTabProps) {
+  const [selectedId, setSelectedId] = useState<string>('');
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [allAnswers, setAllAnswers] = useState<SessionAnswer[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const selectedStudent = students.find(s => s.id === selectedId) ?? null;
+
+  useEffect(() => {
+    if (!selectedId) return;
+    setLoading(true);
+    setSessions([]);
+    setAllAnswers([]);
+
+    const fetchPractice = async () => {
+      const { data: sessionsData } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('student_id', selectedId)
+        .order('created_at', { ascending: true });
+
+      const s = sessionsData ?? [];
+      setSessions(s);
+
+      if (s.length > 0) {
+        const ids = s.map(x => x.id);
+        const { data: answersData } = await supabase
+          .from('session_answers')
+          .select('*')
+          .in('session_id', ids);
+        setAllAnswers(answersData ?? []);
+      }
+
+      setLoading(false);
+    };
+
+    fetchPractice();
+  }, [selectedId]);
+
+  const totalPoints = sessions.reduce((sum, s) => sum + s.score, 0);
+  const totalAnswers = allAnswers.length;
+  const correctAnswers = allAnswers.filter(a => a.is_correct).length;
+  const accuracy = totalAnswers > 0 ? Math.round((correctAnswers / totalAnswers) * 100) : 0;
+  const bestScore = sessions.length > 0 ? Math.max(...sessions.map(s => s.score)) : 0;
+
+  const scoreChartData = sessions.map((s, i) => ({
+    name: `S${i + 1}`,
+    score: s.score,
+    accuracy: s.questions_answered > 0 ? Math.round((s.correct_answers / s.questions_answered) * 100) : 0,
+  }));
+
+  const misconceptionCounts: Record<string, number> = {};
+  allAnswers.forEach(a => {
+    if (!a.is_correct && a.misconception_type) {
+      misconceptionCounts[a.misconception_type] = (misconceptionCounts[a.misconception_type] || 0) + 1;
+    }
+  });
+  const misconceptionData = Object.entries(misconceptionCounts).map(([type, count]) => ({
+    name: MISCONCEPTION_LABELS[type as NonNullable<MisconceptionType>] ?? type,
+    type,
+    count,
+    color: MISCONCEPTION_COLORS[type as NonNullable<MisconceptionType>] ?? '#6b7280',
+  }));
+
+  return (
+    <div>
+      {/* Student selector */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6 flex items-center gap-4 flex-wrap">
+        <Users className="w-5 h-5 text-indigo-500 flex-shrink-0" />
+        <span className="text-sm font-semibold text-gray-700">Select Student:</span>
+        <select
+          value={selectedId}
+          onChange={e => setSelectedId(e.target.value)}
+          className="border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-700 focus:outline-none focus:border-indigo-400 bg-white min-w-[220px]"
+        >
+          <option value="">— Choose a student —</option>
+          {students.map(s => (
+            <option key={s.id} value={s.id}>{s.name} ({s.classCode})</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Empty state */}
+      {!selectedId && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 py-20 text-center">
+          <Activity className="w-14 h-14 text-gray-200 mx-auto mb-4" />
+          <p className="text-gray-400 font-semibold">Select a student to view their practice progress</p>
+        </div>
+      )}
+
+      {/* Loading */}
+      {selectedId && loading && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#5C35A0' }} />
+        </div>
+      )}
+
+      {/* No sessions */}
+      {selectedId && !loading && sessions.length === 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 py-20 text-center">
+          <BarChart3 className="w-14 h-14 text-gray-200 mx-auto mb-4" />
+          <p className="text-gray-500 font-semibold text-lg mb-1">No Practice Sessions Yet</p>
+          <p className="text-gray-400 text-sm">{selectedStudent?.name} hasn't completed any practice sessions.</p>
+        </div>
+      )}
+
+      {/* Progress content */}
+      {selectedId && !loading && sessions.length > 0 && (
+        <>
+          {/* Stat cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {[
+              { icon: <Trophy className="w-5 h-5 text-white" />, bg: 'bg-amber-500', label: 'Total Points', value: String(totalPoints) },
+              { icon: <Target className="w-5 h-5 text-white" />, bg: 'bg-green-500', label: 'Overall Accuracy', value: `${accuracy}%` },
+              { icon: <TrendingUp className="w-5 h-5 text-white" />, bg: 'bg-indigo-500', label: 'Best Score', value: String(bestScore) },
+              { icon: <Calendar className="w-5 h-5 text-white" />, bg: 'bg-purple-500', label: 'Sessions', value: String(sessions.length) },
+            ].map((c, i) => (
+              <div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${c.bg}`}>{c.icon}</div>
+                  <span className="text-xs font-semibold text-gray-500">{c.label}</span>
+                </div>
+                <p className="text-2xl font-bold text-gray-800">{c.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Score history chart */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
+            <h3 className="font-bold text-gray-800 mb-1 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-indigo-500" />
+              Score History
+            </h3>
+            <p className="text-gray-400 text-xs mb-4">Score and accuracy per practice session</p>
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={scoreChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis yAxisId="left" tick={{ fontSize: 11 }} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} unit="%" />
+                  <Tooltip
+                    contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  />
+                  <Line yAxisId="left" type="monotone" dataKey="score" stroke="#5C35A0" strokeWidth={3} dot={{ fill: '#5C35A0', r: 5 }} name="Score" />
+                  <Line yAxisId="right" type="monotone" dataKey="accuracy" stroke="#22c55e" strokeWidth={2} strokeDasharray="5 5" dot={{ fill: '#22c55e', r: 4 }} name="Accuracy %" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex justify-center gap-6 mt-3">
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm" style={{ backgroundColor: '#5C35A0' }} /><span className="text-xs text-gray-500">Score</span></div>
+              <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm bg-green-500" /><span className="text-xs text-gray-500">Accuracy %</span></div>
+            </div>
+          </div>
+
+          {/* Misconception chart */}
+          {misconceptionData.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
+              <h3 className="font-bold text-gray-800 mb-1 flex items-center gap-2">
+                <Brain className="w-5 h-5 text-indigo-400" />
+                Common Mistakes
+              </h3>
+              <p className="text-gray-400 text-xs mb-4">Misconception type frequency across all practice sessions</p>
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={misconceptionData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis type="number" tick={{ fontSize: 11 }} />
+                    <YAxis dataKey="name" type="category" width={140} tick={{ fontSize: 11 }} />
+                    <Tooltip
+                      contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    />
+                    <Bar dataKey="count" radius={[0, 6, 6, 0]}>
+                      {misconceptionData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* Session history */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-indigo-500" />
+                Session History
+                <span className="text-xs text-gray-400 font-normal ml-1">{sessions.length} session{sessions.length !== 1 ? 's' : ''}</span>
+              </h3>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {sessions.slice().reverse().map((session, i) => {
+                const num = sessions.length - i;
+                const acc = session.questions_answered > 0
+                  ? Math.round((session.correct_answers / session.questions_answered) * 100)
+                  : 0;
+                return (
+                  <div key={session.id} className="flex items-center justify-between px-6 py-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style={{ backgroundColor: '#5C35A0' }}>
+                        #{num}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm text-gray-700">
+                          {new Date(session.created_at).toLocaleDateString('en-MY', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </p>
+                        <p className="text-xs text-gray-400 capitalize">{session.difficulty} difficulty</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <div className="text-center">
+                        <p className="text-base font-bold text-indigo-600">{session.score}</p>
+                        <p className="text-xs text-gray-400">pts</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-base font-bold text-green-600">{acc}%</p>
+                        <p className="text-xs text-gray-400">accuracy</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-base font-bold text-amber-600">{session.correct_answers}/{session.questions_answered}</p>
+                        <p className="text-xs text-gray-400">correct</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export function TeacherDashboard() {
@@ -604,12 +852,14 @@ export function TeacherDashboard() {
         <div className="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-bold text-gray-800">
-              {activeTab === 'overview' ? 'Class Overview' : 'Misconception Heatmap'}
+              {activeTab === 'overview' ? 'Class Overview' : activeTab === 'heatmap' ? 'Misconception Heatmap' : "Students' Practice Progress"}
             </h1>
             <p className="text-gray-400 text-sm">
               {activeTab === 'overview'
                 ? 'Pre-test and post-test results for all students'
-                : 'Error frequency by student and misconception type'}
+                : activeTab === 'heatmap'
+                ? 'Error frequency by student and misconception type'
+                : 'Select a student to view their practice session history'}
             </p>
           </div>
           <button
@@ -628,6 +878,9 @@ export function TeacherDashboard() {
           )}
           {activeTab === 'heatmap' && (
             <HeatmapTab students={students} />
+          )}
+          {activeTab === 'practice' && (
+            <PracticeProgressTab students={students} />
           )}
         </div>
       </div>
