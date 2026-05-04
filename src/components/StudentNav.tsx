@@ -1,20 +1,21 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Calculator, BookOpen, Gamepad2, BarChart3, LogOut, Star } from 'lucide-react';
+import { Calculator, BookOpen, Gamepad2, BarChart3, LogOut, ClipboardCheck, Lock } from 'lucide-react';
 
 interface StudentNavProps {
   currentPage: string;
   onNavigate: (page: string) => void;
+  postTestUnlocked: boolean;
 }
 
-export function StudentNav({ currentPage, onNavigate }: StudentNavProps) {
+export function StudentNav({ currentPage, onNavigate, postTestUnlocked }: StudentNavProps) {
   const { student, logout } = useAuth();
 
   const navItems = [
     { id: 'home', label: 'Home', icon: Calculator },
     { id: 'learn', label: 'Learn', icon: BookOpen },
     { id: 'practice', label: 'Practice', icon: Gamepad2 },
-    { id: 'pretest', label: 'Quiz', icon: Star },
+    { id: 'posttest', label: 'Post-Test', icon: postTestUnlocked ? ClipboardCheck : Lock },
     { id: 'progress', label: 'My Progress', icon: BarChart3 },
   ];
 
@@ -33,14 +34,19 @@ export function StudentNav({ currentPage, onNavigate }: StudentNavProps) {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentPage === item.id;
+              const isLocked = item.id === 'posttest' && !postTestUnlocked;
               return (
                 <button
                   key={item.id}
-                  onClick={() => onNavigate(item.id)}
+                  onClick={() => !isLocked && onNavigate(item.id)}
+                  disabled={isLocked}
+                  title={isLocked ? 'Complete all practice levels to unlock' : undefined}
                   className={`flex items-center gap-2 px-3 py-2 rounded-xl font-semibold transition-all duration-200 ${
                     isActive
                       ? 'bg-indigo-500 text-white shadow-md'
-                      : 'text-gray-600 hover:bg-indigo-100 hover:text-indigo-600'
+                      : isLocked
+                        ? 'text-gray-300 cursor-not-allowed'
+                        : 'text-gray-600 hover:bg-indigo-100 hover:text-indigo-600'
                   }`}
                 >
                   <Icon className="w-5 h-5" />

@@ -1,13 +1,14 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, Gamepad2, BarChart3, Star, Trophy, Target } from 'lucide-react';
+import { BookOpen, Gamepad2, BarChart3, Star, Trophy, Target, ClipboardCheck, Lock } from 'lucide-react';
 import { Fraction } from './Fraction';
 
 interface StudentHomeProps {
   onNavigate: (page: string) => void;
+  allPracticeComplete: boolean;
 }
 
-export function StudentHome({ onNavigate }: StudentHomeProps) {
+export function StudentHome({ onNavigate, allPracticeComplete }: StudentHomeProps) {
   const { student } = useAuth();
 
   const menuItems = [
@@ -16,27 +17,38 @@ export function StudentHome({ onNavigate }: StudentHomeProps) {
       title: 'Learn',
       description: 'Explore lessons about fraction multiplication',
       icon: BookOpen,
-      color: 'indigo',
       bgColor: 'bg-indigo-100',
       iconColor: 'text-indigo-500',
+      locked: false,
     },
     {
       id: 'practice',
       title: 'Practice',
-      description: 'Test your skills with fun exercises',
+      description: 'Complete all 3 levels: Beginner, Intermediate, Advanced',
       icon: Gamepad2,
-      color: 'amber',
       bgColor: 'bg-amber-100',
       iconColor: 'text-amber-500',
+      locked: false,
+    },
+    {
+      id: 'posttest',
+      title: 'Post-Test',
+      description: allPracticeComplete
+        ? 'Take your final assessment!'
+        : 'Complete all 3 practice levels to unlock',
+      icon: allPracticeComplete ? ClipboardCheck : Lock,
+      bgColor: allPracticeComplete ? 'bg-violet-100' : 'bg-gray-100',
+      iconColor: allPracticeComplete ? 'text-violet-500' : 'text-gray-400',
+      locked: !allPracticeComplete,
     },
     {
       id: 'progress',
       title: 'My Progress',
       description: 'See how much you have improved',
       icon: BarChart3,
-      color: 'green',
       bgColor: 'bg-green-100',
       iconColor: 'text-green-500',
+      locked: false,
     },
   ];
 
@@ -73,8 +85,11 @@ export function StudentHome({ onNavigate }: StudentHomeProps) {
           return (
             <button
               key={item.id}
-              onClick={() => onNavigate(item.id)}
-              className="w-full card card-hover text-left"
+              onClick={() => !item.locked && onNavigate(item.id)}
+              disabled={item.locked}
+              className={`w-full card text-left transition-all ${
+                item.locked ? 'opacity-60 cursor-not-allowed' : 'card-hover'
+              }`}
             >
               <div className="flex items-center gap-4">
                 <div className={`w-16 h-16 ${item.bgColor} rounded-2xl flex items-center justify-center`}>
@@ -84,11 +99,13 @@ export function StudentHome({ onNavigate }: StudentHomeProps) {
                   <h3 className="text-xl text-gray-800">{item.title}</h3>
                   <p className="text-gray-600">{item.description}</p>
                 </div>
-                <div className="text-indigo-400">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
+                {!item.locked && (
+                  <div className="text-indigo-400">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                )}
               </div>
             </button>
           );

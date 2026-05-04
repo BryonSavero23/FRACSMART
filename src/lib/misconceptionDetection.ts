@@ -114,7 +114,7 @@ export function detectMisconception(
     }
   }
 
-  if (student.denominator === 1) {
+  if (student.denominator === 1 && correctAnswer.denominator !== 1) {
     return {
       type: 'whole_number_bias',
       message: "When you multiply two fractions, the answer must be smaller, not bigger!",

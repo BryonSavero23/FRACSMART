@@ -7,7 +7,7 @@ import { Fraction } from './Fraction';
 import confetti from 'canvas-confetti';
 
 interface PracticeModeProps {
-  onComplete: (sessionId: string) => void;
+  onComplete: (sessionId: string, difficulty: string) => void;
 }
 
 interface AnswerRecord {
@@ -796,7 +796,7 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
       await updateStudentScore(finalScore);
       await incrementSessions();
       setCompletedDifficulties(prev => new Set([...prev, difficultyRef.current]));
-      onComplete(sid);
+      onComplete(sid, difficultyRef.current);
     }
   };
 

@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard, Users, BarChart3, LogOut,
   Calculator, Download, X, ChevronUp, ChevronDown,
   AlertTriangle, TrendingUp, Star, FileText,
-  Brain,
+  Brain, Loader2,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { MOCK_STUDENTS, MockStudent } from '../data/mockTeacherData';
+import { MockStudent } from '../data/mockTeacherData';
+import { supabase } from '../lib/supabase';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,25 @@ const MISCONCEPTION_TYPES = [
 ] as const;
 
 type MisconceptionKey = typeof MISCONCEPTION_TYPES[number]['key'];
+
+function getStatus(pre: number, post: number): MockStudent['status'] {
+  if (pre === 0 && post === 0) return 'Not Started';
+  if (post > pre) return 'Improved';
+  return 'Needs Attention';
+}
+
+function getTopMisconception(counts: MockStudent['misconceptionCounts']): string {
+  const labels: Record<string, string> = {
+    adding_fractions: 'Additive Interference',
+    denominator_only: 'Denominator Only',
+    numerator_only: 'Numerator Only',
+    whole_number_bias: 'Whole Number Bias',
+    unsimplified: 'Simplification Confusion',
+    other: 'Other',
+  };
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  return top && top[1] > 0 ? labels[top[0]] : '—';
+}
 
 // ─── CSV export ──────────────────────────────────────────────────────────────
 
@@ -467,11 +487,120 @@ export function TeacherDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [selectedStudent, setSelectedStudent] = useState<MockStudent | null>(null);
   const [teacherNotes, setTeacherNotes] = useState<Record<string, string>>({});
+  const [students, setStudents] = useState<MockStudent[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
+
+  useEffect(() => {
+    if (!teacher) return;
+    setLoadingStudents(true);
+
+    const fetchData = async () => {
+      const { data: classCodes } = await supabase
+        .from('class_codes')
+        .select('code')
+        .eq('teacher_id', teacher.id);
+
+      const codes = classCodes?.map(c => c.code) ?? [];
+
+      // If teacher has assigned class codes use them; otherwise show all students
+      const baseQuery = supabase.from('students').select('*');
+      const { data: studentsData } = codes.length > 0
+        ? await baseQuery.in('class_code', codes)
+        : await baseQuery;
+
+      if (!studentsData || studentsData.length === 0) {
+        setStudents([]);
+        setLoadingStudents(false);
+        return;
+      }
+
+      const studentIds = studentsData.map(s => s.id);
+
+      const { data: testSessions } = await supabase
+        .from('test_sessions')
+        .select('*')
+        .in('student_id', studentIds);
+
+      const allSessions = testSessions ?? [];
+      const sessionIds = allSessions.map(s => s.id);
+
+      const { data: testAnswers } = sessionIds.length > 0
+        ? await supabase.from('test_answers').select('*').in('session_id', sessionIds)
+        : { data: [] };
+
+      const allAnswers = testAnswers ?? [];
+
+      const mapped: MockStudent[] = studentsData.map(student => {
+        const studentSessions = allSessions.filter(s => s.student_id === student.id);
+        const preSessions = studentSessions
+          .filter(s => s.test_type === 'pre')
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        const postSessions = studentSessions
+          .filter(s => s.test_type === 'post')
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        const preScore = preSessions[0]?.score ?? 0;
+        const postScore = postSessions[0]?.score ?? 0;
+
+        const studentSessionIds = new Set(studentSessions.map(s => s.id));
+        const studentAnswers = allAnswers.filter(a => studentSessionIds.has(a.session_id));
+
+        const misconceptionCounts: MockStudent['misconceptionCounts'] = {
+          adding_fractions: 0,
+          denominator_only: 0,
+          numerator_only: 0,
+          whole_number_bias: 0,
+          unsimplified: 0,
+          other: 0,
+        };
+
+        studentAnswers.forEach(a => {
+          if (!a.is_correct && a.misconception_type) {
+            const key = a.misconception_type as keyof typeof misconceptionCounts;
+            if (key in misconceptionCounts) {
+              misconceptionCounts[key]++;
+            } else {
+              misconceptionCounts.other++;
+            }
+          }
+        });
+
+        return {
+          id: student.id,
+          name: student.name,
+          classCode: student.class_code,
+          preScore,
+          postScore,
+          misconceptionCounts,
+          topMisconception: getTopMisconception(misconceptionCounts),
+          status: getStatus(preScore, postScore),
+          isAtRisk: postScore <= 4 || postScore <= preScore,
+          teacherNote: '',
+        };
+      });
+
+      setStudents(mapped);
+      setLoadingStudents(false);
+    };
+
+    fetchData();
+  }, [teacher?.id]);
 
   const handleNoteChange = (note: string) => {
     if (!selectedStudent) return;
     setTeacherNotes(prev => ({ ...prev, [selectedStudent.id]: note }));
   };
+
+  if (loadingStudents) {
+    return (
+      <div className="flex min-h-screen bg-gray-50 items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#5C35A0' }} />
+          <p className="text-gray-500 text-sm">Loading class data…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -496,7 +625,7 @@ export function TeacherDashboard() {
             </p>
           </div>
           <button
-            onClick={() => downloadCSV(MOCK_STUDENTS)}
+            onClick={() => downloadCSV(students)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-md hover:opacity-90 transition-all"
             style={{ backgroundColor: '#5C35A0' }}
           >
@@ -507,10 +636,10 @@ export function TeacherDashboard() {
 
         <div className="flex-1 p-6 lg:p-8 overflow-y-auto">
           {activeTab === 'overview' && (
-            <OverviewTab students={MOCK_STUDENTS} onSelectStudent={setSelectedStudent} />
+            <OverviewTab students={students} onSelectStudent={setSelectedStudent} />
           )}
           {activeTab === 'heatmap' && (
-            <HeatmapTab students={MOCK_STUDENTS} />
+            <HeatmapTab students={students} />
           )}
         </div>
       </div>

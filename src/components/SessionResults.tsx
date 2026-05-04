@@ -8,7 +8,8 @@ import { Fraction } from './Fraction';
 interface SessionResultsProps {
   sessionId: string;
   onBack: () => void;
-  onContinueToPostTest?: () => void;
+  onContinue?: () => void;
+  continueLabel?: string;
 }
 
 const misconceptionLabels: Record<string, string> = {
@@ -29,7 +30,7 @@ const misconceptionColors: Record<string, string> = {
   other: '#8b5cf6',
 };
 
-export function SessionResults({ sessionId, onBack, onContinueToPostTest }: SessionResultsProps) {
+export function SessionResults({ sessionId, onBack, onContinue, continueLabel = 'Continue to Post-Test' }: SessionResultsProps) {
   const { student } = useAuth();
   const [answers, setAnswers] = useState<SessionAnswer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -273,13 +274,13 @@ export function SessionResults({ sessionId, onBack, onContinueToPostTest }: Sess
           <ArrowLeft className="w-5 h-5" />
           Back to Home
         </button>
-        {onContinueToPostTest && (
+        {onContinue && (
           <button
-            onClick={onContinueToPostTest}
+            onClick={onContinue}
             className="flex items-center gap-2 px-6 py-3 rounded-xl text-white font-bold text-sm shadow-md hover:opacity-90 active:scale-95 transition-all"
             style={{ backgroundColor: '#F5A623' }}
           >
-            Continue to Post-Test
+            {continueLabel}
             <ArrowLeft className="w-4 h-4 rotate-180" />
           </button>
         )}

@@ -99,3 +99,46 @@ export interface PracticeQuestion {
   created_by: string | null;
   created_at: string;
 }
+
+export interface TestQuestion {
+  id: string;
+  sort_order: number;
+  display1_whole: number;
+  display1_numerator: number;
+  display1_denominator: number;
+  display2_whole: number;
+  display2_numerator: number;
+  display2_denominator: number;
+  fraction1_numerator: number;
+  fraction1_denominator: number;
+  fraction2_numerator: number;
+  fraction2_denominator: number;
+  correct_numerator: number;
+  correct_denominator: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface TestSession {
+  id: string;
+  student_id: string;
+  test_type: 'pre' | 'post';
+  score: number;
+  total_questions: number;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface TestAnswer {
+  id: string;
+  session_id: string;
+  question_id: string | null;
+  question_num: number;
+  student_numerator: number | null;
+  student_denominator: number | null;
+  is_correct: boolean;
+  misconception_type: string | null;
+  time_taken_ms: number | null;
+  created_at: string;
+}

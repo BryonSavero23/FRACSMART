@@ -10,21 +10,47 @@ import { StudentProgress } from './components/StudentProgress';
 import { TeacherDashboard } from './components/TeacherDashboard';
 import { TestMode } from './components/TestMode';
 import { QuizSummary } from './components/QuizSummary';
+import { supabase } from './lib/supabase';
 
 const PRETEST_KEY = (id: string) => `fracsmart_pretest_${id}`;
+const ALL_PRACTICE_KEY = (id: string) => `fracsmart_allpractice_${id}`;
 
 function AppContent() {
   const { student, teacher, isLoading } = useAuth();
   const [currentPage, setCurrentPage] = useState('home');
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [completedDifficulty, setCompletedDifficulty] = useState<string | null>(null);
   const [progressKey, setProgressKey] = useState(0);
+  const [allPracticeComplete, setAllPracticeComplete] = useState(false);
 
-  // Redirect new students (no completed pre-test) straight to pre-test
   useEffect(() => {
-    if (student) {
-      const done = localStorage.getItem(PRETEST_KEY(student.id));
-      if (!done) setCurrentPage('pretest');
+    if (!student) return;
+    const pretestDone = localStorage.getItem(PRETEST_KEY(student.id));
+    if (!pretestDone) {
+      setCurrentPage('pretest');
+      return;
     }
+    const allPractice = localStorage.getItem(ALL_PRACTICE_KEY(student.id));
+    if (allPractice) {
+      setAllPracticeComplete(true);
+      return;
+    }
+    supabase
+      .from('sessions')
+      .select('difficulty, questions_answered')
+      .eq('student_id', student.id)
+      .then(({ data }) => {
+        if (!data) return;
+        const completed = new Set<string>();
+        data.forEach(s => {
+          const needed = s.difficulty === 'beginner' ? 5 : 10;
+          if (s.questions_answered >= needed) completed.add(s.difficulty);
+        });
+        if (completed.has('beginner') && completed.has('intermediate') && completed.has('advanced')) {
+          localStorage.setItem(ALL_PRACTICE_KEY(student.id), 'done');
+          setAllPracticeComplete(true);
+        }
+      });
   }, [student?.id]);
 
   if (isLoading) {
@@ -47,13 +73,25 @@ function AppContent() {
   }
 
   const navigateTo = (page: string) => {
+    if (page === 'posttest' && !allPracticeComplete) return;
     if (page === 'progress') setProgressKey(k => k + 1);
     setCurrentPage(page);
   };
 
-  const handlePracticeComplete = (sessionId: string) => {
+  const handlePracticeComplete = (sessionId: string, difficulty: string) => {
     setCurrentSessionId(sessionId);
+    setCompletedDifficulty(difficulty);
+    if (difficulty === 'advanced' && student) {
+      localStorage.setItem(ALL_PRACTICE_KEY(student.id), 'done');
+      setAllPracticeComplete(true);
+    }
     setCurrentPage('results');
+  };
+
+  const getContinueAction = () => {
+    if (completedDifficulty === 'beginner') return { label: 'Continue to Intermediate', dest: 'practice' };
+    if (completedDifficulty === 'intermediate') return { label: 'Continue to Advanced', dest: 'practice' };
+    return { label: 'Continue to Post-Test', dest: 'posttest' };
   };
 
   const markPreTestDone = () => {
@@ -65,7 +103,7 @@ function AppContent() {
   const renderStudentPage = () => {
     switch (currentPage) {
       case 'home':
-        return <StudentHome onNavigate={navigateTo} />;
+        return <StudentHome onNavigate={navigateTo} allPracticeComplete={allPracticeComplete} />;
       case 'learn':
         return (
           <LearnMode
@@ -75,16 +113,19 @@ function AppContent() {
         );
       case 'practice':
         return <PracticeMode onComplete={handlePracticeComplete} />;
-      case 'results':
+      case 'results': {
+        const { label, dest } = getContinueAction();
         return currentSessionId ? (
           <SessionResults
             sessionId={currentSessionId}
             onBack={() => navigateTo('home')}
-            onContinueToPostTest={() => navigateTo('posttest')}
+            onContinue={() => navigateTo(dest)}
+            continueLabel={label}
           />
         ) : (
-          <StudentHome onNavigate={navigateTo} />
+          <StudentHome onNavigate={navigateTo} allPracticeComplete={allPracticeComplete} />
         );
+      }
       case 'progress':
         return <StudentProgress key={progressKey} />;
       case 'pretest':
@@ -106,13 +147,13 @@ function AppContent() {
       case 'quiz-summary':
         return <QuizSummary onReviewAnswers={() => {}} onBack={() => navigateTo('home')} />;
       default:
-        return <StudentHome onNavigate={navigateTo} />;
+        return <StudentHome onNavigate={navigateTo} allPracticeComplete={allPracticeComplete} />;
     }
   };
 
   return (
     <div className={isQuizPage ? '' : 'min-h-screen bg-gradient-to-br from-indigo-50 to-amber-50'}>
-      {!isQuizPage && <StudentNav currentPage={currentPage} onNavigate={navigateTo} />}
+      {!isQuizPage && <StudentNav currentPage={currentPage} onNavigate={navigateTo} postTestUnlocked={allPracticeComplete} />}
       <main className={isQuizPage ? '' : 'py-6'}>
         {renderStudentPage()}
       </main>
