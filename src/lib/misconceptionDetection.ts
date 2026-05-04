@@ -1,8 +1,8 @@
 export type MisconceptionType =
   | 'adding_fractions'
   | 'whole_number_bias'
-  | 'denominator_only'
-  | 'numerator_only'
+  | 'partial_multiplication'
+  | 'mixed_number_error'
   | 'unsimplified'
   | 'other'
   | null;
@@ -61,71 +61,109 @@ export function detectMisconception(
     };
   }
 
-  const { fraction1, fraction2, correctAnswer } = question;
+  const { fraction1: f1, fraction2: f2, correctAnswer } = question;
   const student = studentAnswer;
 
+  // Priority 1: unsimplified — equivalent to correct but not in lowest form
   if (areEqual(student, correctAnswer)) {
-    return {
-      type: null,
-      message: "Excellent work! That's correct!",
-      tip: "",
-    };
-  }
-
-  const simplifiedCorrect = simplify(correctAnswer);
-  const simplifiedStudent = simplify(student);
-
-  if (areEqual(student, correctAnswer) === false &&
-      student.numerator * correctAnswer.denominator === student.denominator * correctAnswer.numerator) {
+    if (gcd(student.numerator, student.denominator) === 1) {
+      return { type: null, message: "Excellent work! That's correct!", tip: "" };
+    }
     return {
       type: 'unsimplified',
-      message: "You need to simplify your answer first before multiplying. Find the common factor and divide!",
-      tip: `Try dividing both numbers by their greatest common divisor. ${student.numerator} and ${student.denominator} can both be divided by ${gcd(student.numerator, student.denominator)}.`,
+      message: "Your answer is correct but not simplified.",
+      tip: "Simplify your fraction to the smallest form.",
     };
   }
 
-  const addedNumerator = fraction1.numerator + fraction2.numerator;
-  const addedDenominator = fraction1.denominator + fraction2.denominator;
-  if (student.numerator === addedNumerator && student.denominator === addedDenominator) {
+  // Priority 2: adding_fractions — (a+c)/(b+d)
+  if (
+    student.numerator === f1.numerator + f2.numerator &&
+    student.denominator === f1.denominator + f2.denominator
+  ) {
     return {
       type: 'adding_fractions',
-      message: "You added the numbers instead of multiplying them!",
-      tip: "When multiplying fractions, multiply the tops together AND multiply the bottoms together. Don't add them!",
+      message: "You added the numbers instead of multiplying them.",
+      tip: "Multiply the top numbers and the bottom numbers, not add.",
     };
   }
 
-  if (student.numerator === fraction1.numerator * fraction2.numerator) {
-    if (student.denominator === fraction1.denominator + fraction2.denominator) {
+  // Priority 3: partial_multiplication
+  // Numerator correct, denominator added: (a×c)/(b+d)
+  if (
+    student.numerator === f1.numerator * f2.numerator &&
+    student.denominator === f1.denominator + f2.denominator
+  ) {
+    return {
+      type: 'partial_multiplication',
+      message: "You only multiplied part of the fraction.",
+      tip: "Multiply both the top and the bottom numbers.",
+    };
+  }
+  // Denominator correct, numerator added: (a+c)/(b×d)
+  if (
+    student.numerator === f1.numerator + f2.numerator &&
+    student.denominator === f1.denominator * f2.denominator
+  ) {
+    return {
+      type: 'partial_multiplication',
+      message: "You only multiplied part of the fraction.",
+      tip: "Multiply both the top and the bottom numbers.",
+    };
+  }
+
+  // Priority 4: mixed_number_error — wrong conversion of an improper fraction
+  // Detects: student used (whole × denom) as numerator instead of (whole × denom + frac_num)
+  // e.g. 1½ = 3/2 wrongly converted to 2/2
+  const hasImproper = f1.numerator > f1.denominator || f2.numerator > f2.denominator;
+  if (hasImproper) {
+    const wrongF1 = f1.numerator > f1.denominator
+      ? { numerator: Math.floor(f1.numerator / f1.denominator) * f1.denominator, denominator: f1.denominator }
+      : f1;
+    const wrongF2 = f2.numerator > f2.denominator
+      ? { numerator: Math.floor(f2.numerator / f2.denominator) * f2.denominator, denominator: f2.denominator }
+      : f2;
+
+    // Also check if student just used the whole number (integer part) as the fraction
+    const wholeF1 = f1.numerator > f1.denominator
+      ? { numerator: Math.floor(f1.numerator / f1.denominator), denominator: 1 }
+      : f1;
+    const wholeF2 = f2.numerator > f2.denominator
+      ? { numerator: Math.floor(f2.numerator / f2.denominator), denominator: 1 }
+      : f2;
+
+    const candidates = [
+      { numerator: wrongF1.numerator * f2.numerator, denominator: wrongF1.denominator * f2.denominator },
+      { numerator: f1.numerator * wrongF2.numerator, denominator: f1.denominator * wrongF2.denominator },
+      { numerator: wholeF1.numerator * f2.numerator, denominator: wholeF1.denominator * f2.denominator },
+      { numerator: f1.numerator * wholeF2.numerator, denominator: f1.denominator * wholeF2.denominator },
+    ];
+
+    if (candidates.some(c => areEqual(student, c))) {
       return {
-        type: 'denominator_only',
-        message: "You only multiplied the bottom numbers. Don't forget to multiply the top numbers too!",
-        tip: "Remember: multiply the denominators too! Don't add them.",
+        type: 'mixed_number_error',
+        message: "You need to convert mixed numbers before multiplying.",
+        tip: "Change mixed numbers into improper fractions first.",
       };
     }
   }
 
-  if (student.denominator === fraction1.denominator * fraction2.denominator) {
-    if (student.numerator === fraction1.numerator + fraction2.numerator) {
-      return {
-        type: 'numerator_only',
-        message: "Check how you changed your mixed number. For example, 2½ becomes 5/2, not 2/2 or 21/2!",
-        tip: "Remember: multiply the numerators too! Don't add them.",
-      };
-    }
-  }
-
-  if (student.denominator === 1 && correctAnswer.denominator !== 1) {
+  // Priority 5: whole_number_bias — answer is larger than both input fractions
+  const studentValue = student.numerator / student.denominator;
+  const f1Value = f1.numerator / f1.denominator;
+  const f2Value = f2.numerator / f2.denominator;
+  if (studentValue > f1Value && studentValue > f2Value) {
     return {
       type: 'whole_number_bias',
-      message: "When you multiply two fractions, the answer must be smaller, not bigger!",
-      tip: "When we multiply two fractions, the answer is usually still a fraction (unless the numerators and denominators divide evenly).",
+      message: "Multiplying fractions can make the answer smaller.",
+      tip: "You are finding a part of a part, so the result is usually smaller.",
     };
   }
 
   return {
     type: 'other',
-    message: "Not quite! Remember: multiply top × top, then bottom × bottom. Then simplify if you can!",
-    tip: `Remember: ${fraction1.numerator}/${fraction1.denominator} × ${fraction2.numerator}/${fraction2.denominator} = ${fraction1.numerator * fraction2.numerator}/${fraction1.denominator * fraction2.denominator}. Can you simplify this?`,
+    message: "Not quite! Remember: multiply top × top, then bottom × bottom.",
+    tip: "Multiply the top numbers together, then multiply the bottom numbers together.",
   };
 }
 
