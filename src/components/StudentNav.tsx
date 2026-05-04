@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Calculator, BookOpen, Gamepad2, BarChart3, LogOut, ClipboardCheck, Lock } from 'lucide-react';
+import { Calculator, BookOpen, Gamepad2, BarChart3, LogOut, ClipboardCheck, ClipboardList, Lock } from 'lucide-react';
 
 interface StudentNavProps {
   currentPage: string;
@@ -13,6 +13,7 @@ export function StudentNav({ currentPage, onNavigate, postTestUnlocked }: Studen
 
   const navItems = [
     { id: 'home', label: 'Home', icon: Calculator },
+    { id: 'pretest', label: 'Pre-Test', icon: ClipboardList },
     { id: 'learn', label: 'Learn', icon: BookOpen },
     { id: 'practice', label: 'Practice', icon: Gamepad2 },
     { id: 'posttest', label: 'Post-Test', icon: postTestUnlocked ? ClipboardCheck : Lock },
@@ -33,18 +34,22 @@ export function StudentNav({ currentPage, onNavigate, postTestUnlocked }: Studen
           <div className="flex items-center gap-1 sm:gap-2">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = currentPage === item.id;
-              const isLocked = item.id === 'posttest' && !postTestUnlocked;
+              const isActive =
+                currentPage === item.id ||
+                (item.id === 'posttest' && currentPage === 'quiz-summary');
+              const isPostTestLocked = item.id === 'posttest' && !postTestUnlocked;
+              const isPreTestDone = item.id === 'pretest' && currentPage !== 'pretest';
+              const isDisabled = isPostTestLocked || isPreTestDone;
               return (
                 <button
                   key={item.id}
-                  onClick={() => !isLocked && onNavigate(item.id)}
-                  disabled={isLocked}
-                  title={isLocked ? 'Complete all practice levels to unlock' : undefined}
+                  onClick={() => !isDisabled && onNavigate(item.id)}
+                  disabled={isDisabled}
+                  title={isPostTestLocked ? 'Complete all practice levels to unlock' : undefined}
                   className={`flex items-center gap-2 px-3 py-2 rounded-xl font-semibold transition-all duration-200 ${
                     isActive
                       ? 'bg-indigo-500 text-white shadow-md'
-                      : isLocked
+                      : isDisabled
                         ? 'text-gray-300 cursor-not-allowed'
                         : 'text-gray-600 hover:bg-indigo-100 hover:text-indigo-600'
                   }`}

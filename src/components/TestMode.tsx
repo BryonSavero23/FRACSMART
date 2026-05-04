@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AlertCircle, CheckCircle, XCircle, ArrowRight, Loader2 } from 'lucide-react';
 import { Fraction } from './Fraction';
-import { QuizSidebar } from './QuizSidebar';
 import { StepProgressBar } from './StepProgressBar';
 import { useQuizStore } from '../store/quizStore';
 import { detectMisconception, type MisconceptionType } from '../lib/misconceptionDetection';
@@ -25,8 +24,8 @@ interface SavedAnswer {
   timeTakenMs: number;
 }
 
-export function TestMode({ mode, onComplete, onBack }: TestModeProps) {
-  const { student, logout } = useAuth();
+export function TestMode({ mode, onComplete }: TestModeProps) {
+  const { student } = useAuth();
   const { startPreTest, startPostTest, recordAnswer, finalizeRun } = useQuizStore();
 
   const [loadingQuestions, setLoadingQuestions] = useState(true);
@@ -299,23 +298,17 @@ export function TestMode({ mode, onComplete, onBack }: TestModeProps) {
 
   if (loadingQuestions) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
-        <QuizSidebar activeItem="quiz" onNavigate={onBack} onLogout={logout} />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-            <p className="text-gray-500 text-sm">Loading questions…</p>
-          </div>
+      <div className="flex items-center justify-center py-20">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+          <p className="text-gray-500 text-sm">Loading questions…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <QuizSidebar activeItem="quiz" onNavigate={onBack} onLogout={logout} />
-
-      <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex flex-col min-w-0">
         {/* Coloured header */}
         <div style={{ backgroundColor: headerColor }}>
           <StepProgressBar currentStep={mode === 'pre' ? 0 : 3} />
@@ -489,6 +482,5 @@ export function TestMode({ mode, onComplete, onBack }: TestModeProps) {
           </div>
         </div>
       </div>
-    </div>
   );
 }

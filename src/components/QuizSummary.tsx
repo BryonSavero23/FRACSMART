@@ -1,16 +1,17 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts';
 import {
   Trophy, TrendingUp, Clock, Target, CheckCircle,
-  Download, RotateCcw, Home, ArrowRight, Star, Brain,
+  Download, RotateCcw, Home, ArrowRight, Star, Brain, Loader2,
 } from 'lucide-react';
-import { useQuizStore } from '../store/quizStore';
+import { useQuizStore, type QuizRun } from '../store/quizStore';
 import { useAuth } from '../contexts/AuthContext';
-import { QuizSidebar } from './QuizSidebar';
 import { StepProgressBar } from './StepProgressBar';
+import { supabase } from '../lib/supabase';
+import type { TestSession, TestAnswer } from '../lib/supabase';
 import type { MisconceptionType } from '../lib/misconceptionDetection';
 
 interface QuizSummaryProps {
@@ -85,51 +86,110 @@ function StatCard({ icon, iconBg, title, pre, post, delta, deltaPositive }: Stat
 
 export function QuizSummary({ onReviewAnswers, onBack }: QuizSummaryProps) {
   const { preTest, postTest, resetAll } = useQuizStore();
-  const { student, logout } = useAuth();
+  const { student } = useAuth();
+
+  const [runPre, setRunPre] = useState<QuizRun | null>(preTest);
+  const [runPost, setRunPost] = useState<QuizRun | null>(postTest);
+  const [loadingFallback, setLoadingFallback] = useState(!preTest || !postTest);
+
+  useEffect(() => {
+    if (preTest && postTest) { setLoadingFallback(false); return; }
+    if (!student) { setLoadingFallback(false); return; }
+
+    const fetchFromDb = async () => {
+      try {
+        const { data: sessions } = await supabase
+          .from('test_sessions')
+          .select('*')
+          .eq('student_id', student.id)
+          .in('test_type', ['pre', 'post'])
+          .order('created_at', { ascending: false });
+
+        if (!sessions?.length) return;
+
+        const preSession = sessions.find((s: TestSession) => s.test_type === 'pre');
+        const postSession = sessions.find((s: TestSession) => s.test_type === 'post');
+
+        const buildRun = async (session: TestSession): Promise<QuizRun> => {
+          const { data: answers } = await supabase
+            .from('test_answers')
+            .select('*')
+            .eq('session_id', session.id)
+            .order('question_num');
+          return {
+            score: session.score,
+            startTime: session.started_at ? new Date(session.started_at).getTime() : 0,
+            endTime: session.completed_at ? new Date(session.completed_at).getTime() : null,
+            answers: (answers ?? []).map((a: TestAnswer) => ({
+              questionId: a.question_num,
+              studentNumerator: a.student_numerator,
+              studentDenominator: a.student_denominator,
+              isCorrect: a.is_correct,
+              misconceptionType: (a.misconception_type ?? null) as MisconceptionType,
+              timeTakenMs: a.time_taken_ms ?? 0,
+            })),
+          };
+        };
+
+        if (!runPre && preSession) setRunPre(await buildRun(preSession));
+        if (!runPost && postSession) setRunPost(await buildRun(postSession));
+      } finally {
+        setLoadingFallback(false);
+      }
+    };
+
+    fetchFromDb();
+  }, [student?.id]);
+
+  // Guard: loading from Supabase
+  if (loadingFallback) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+      </div>
+    );
+  }
 
   // Guard: no data
-  if (!preTest || !postTest) {
+  if (!runPre || !runPost) {
     return (
-      <div className="flex min-h-screen bg-gray-50">
-        <QuizSidebar activeItem="quiz" onNavigate={onBack} onLogout={logout} />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-gray-500 mb-4">No test data found.</p>
-            <button
-              onClick={onBack}
-              className="px-5 py-2 rounded-xl text-white font-bold text-sm"
-              style={{ backgroundColor: '#5C35A0' }}
-            >
-              Back to Home
-            </button>
-          </div>
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <p className="text-gray-500 mb-4">No test data found.</p>
+          <button
+            onClick={onBack}
+            className="px-5 py-2 rounded-xl text-white font-bold text-sm"
+            style={{ backgroundColor: '#5C35A0' }}
+          >
+            Back to Home
+          </button>
         </div>
       </div>
     );
   }
 
-  const preScore = preTest.score;
-  const postScore = postTest.score;
+  const preScore = runPre.score;
+  const postScore = runPost.score;
   const totalQ = 8;
   const preAccuracy = Math.round((preScore / totalQ) * 100);
   const postAccuracy = Math.round((postScore / totalQ) * 100);
   const scoreDelta = postScore - preScore;
   const accuracyDelta = postAccuracy - preAccuracy;
 
-  const preTimeMs = preTest.endTime ? preTest.endTime - preTest.startTime : 0;
-  const postTimeMs = postTest.endTime ? postTest.endTime - postTest.startTime : 0;
+  const preTimeMs = runPre.endTime ? runPre.endTime - runPre.startTime : 0;
+  const postTimeMs = runPost.endTime ? runPost.endTime - runPost.startTime : 0;
   const timeDelta = preTimeMs - postTimeMs; // positive = faster
 
   // Misconception counts
   const counts: Record<string, { pre: number; post: number }> = {};
   MISCONCEPTION_ORDER.forEach(t => { counts[t] = { pre: 0, post: 0 }; });
 
-  preTest.answers.forEach(a => {
+  runPre.answers.forEach(a => {
     if (a.misconceptionType && a.misconceptionType in counts) {
       counts[a.misconceptionType].pre++;
     }
   });
-  postTest.answers.forEach(a => {
+  runPost.answers.forEach(a => {
     if (a.misconceptionType && a.misconceptionType in counts) {
       counts[a.misconceptionType].post++;
     }
@@ -162,21 +222,18 @@ export function QuizSummary({ onReviewAnswers, onBack }: QuizSummaryProps) {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <QuizSidebar activeItem="quiz" onNavigate={onBack} onLogout={logout} />
-
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <div style={{ backgroundColor: '#5C35A0' }}>
-          <StepProgressBar currentStep={4} />
-          <div className="px-8 pb-5">
-            <h1 className="text-2xl font-heading text-white">Summary</h1>
-            <p className="text-white/80 text-sm mt-1">See Your Improvement</p>
-          </div>
+    <div className="flex flex-col min-w-0">
+      {/* Header */}
+      <div style={{ backgroundColor: '#5C35A0' }}>
+        <StepProgressBar currentStep={4} />
+        <div className="px-8 pb-5">
+          <h1 className="text-2xl font-heading text-white">Summary</h1>
+          <p className="text-white/80 text-sm mt-1">See Your Improvement</p>
         </div>
+      </div>
 
-        {/* Content */}
-        <div className="flex-1 p-6 lg:p-8 overflow-y-auto">
+      {/* Content */}
+      <div className="flex-1 p-6 lg:p-8 overflow-y-auto">
           {/* Title row */}
           <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
             <div className="flex items-center gap-3">
@@ -232,10 +289,10 @@ export function QuizSummary({ onReviewAnswers, onBack }: QuizSummaryProps) {
               icon={<CheckCircle className="w-5 h-5 text-white" />}
               iconBg="bg-amber-500"
               title="Questions Attempted"
-              pre={`${preTest.answers.length} / ${totalQ}`}
-              post={`${postTest.answers.length} / ${totalQ}`}
+              pre={`${runPre.answers.length} / ${totalQ}`}
+              post={`${runPost.answers.length} / ${totalQ}`}
               delta={
-                preTest.answers.length === totalQ && postTest.answers.length === totalQ
+                runPre.answers.length === totalQ && runPost.answers.length === totalQ
                   ? 'Great consistency!'
                   : 'Keep going!'
               }
@@ -409,7 +466,6 @@ export function QuizSummary({ onReviewAnswers, onBack }: QuizSummaryProps) {
               Back to Dashboard
             </button>
           </div>
-        </div>
       </div>
     </div>
   );

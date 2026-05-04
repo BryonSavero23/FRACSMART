@@ -10,6 +10,7 @@ import { StudentProgress } from './components/StudentProgress';
 import { TeacherDashboard } from './components/TeacherDashboard';
 import { TestMode } from './components/TestMode';
 import { QuizSummary } from './components/QuizSummary';
+import { TestReview } from './components/TestReview';
 import { supabase } from './lib/supabase';
 
 const PRETEST_KEY = (id: string) => `fracsmart_pretest_${id}`;
@@ -98,9 +99,10 @@ function AppContent() {
     if (student) localStorage.setItem(PRETEST_KEY(student.id), 'done');
   };
 
-  const isQuizPage = ['pretest', 'posttest', 'quiz-summary'].includes(currentPage);
+  const isQuizPage = ['pretest', 'posttest', 'quiz-summary', 'test-review'].includes(currentPage);
 
   const renderStudentPage = () => {
+
     switch (currentPage) {
       case 'home':
         return <StudentHome onNavigate={navigateTo} allPracticeComplete={allPracticeComplete} />;
@@ -145,15 +147,17 @@ function AppContent() {
           />
         );
       case 'quiz-summary':
-        return <QuizSummary onReviewAnswers={() => {}} onBack={() => navigateTo('home')} />;
+        return <QuizSummary onReviewAnswers={() => navigateTo('test-review')} onBack={() => navigateTo('home')} />;
+      case 'test-review':
+        return <TestReview onBack={() => navigateTo('quiz-summary')} />;
       default:
         return <StudentHome onNavigate={navigateTo} allPracticeComplete={allPracticeComplete} />;
     }
   };
 
   return (
-    <div className={isQuizPage ? '' : 'min-h-screen bg-gradient-to-br from-indigo-50 to-amber-50'}>
-      {!isQuizPage && <StudentNav currentPage={currentPage} onNavigate={navigateTo} postTestUnlocked={allPracticeComplete} />}
+    <div className={isQuizPage ? 'min-h-screen bg-gray-50' : 'min-h-screen bg-gradient-to-br from-indigo-50 to-amber-50'}>
+      <StudentNav currentPage={currentPage} onNavigate={navigateTo} postTestUnlocked={allPracticeComplete} />
       <main className={isQuizPage ? '' : 'py-6'}>
         {renderStudentPage()}
       </main>

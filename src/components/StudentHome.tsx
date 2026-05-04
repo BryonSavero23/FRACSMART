@@ -123,6 +123,8 @@ export function StudentHome({ onNavigate, allPracticeComplete }: StudentHomeProp
           <Fraction numerator={1} denominator={4} color="text-indigo-600" size="lg" />
           <span className="text-2xl font-bold text-gray-400">=</span>
           <Fraction numerator={2} denominator={12} color="text-amber-500" size="lg" />
+          <span className="text-2xl font-bold text-gray-400">=</span>
+          <Fraction numerator={1} denominator={6} color="text-amber-500" size="lg" />
         </div>
       </div>
     </div>
