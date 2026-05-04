@@ -202,7 +202,7 @@ const LEVEL_CONFIG = {
     lines: ['Easy fractions with small numbers', 'Build your basics!'],
     unlockNeed: 0,
     unlockFrom: null as string | null,
-    nextUnlockPoints: 40,
+    nextUnlockPoints: null as number | null,
     nextUnlockName: 'Intermediate Mountain',
     cardBg: 'bg-gradient-to-br from-green-50 to-emerald-50',
     border: 'border-green-200',
@@ -221,7 +221,7 @@ const LEVEL_CONFIG = {
     lines: ['More challenging fractions', 'Simplify and multiply!'],
     unlockNeed: 40,
     unlockFrom: 'Beginner Island',
-    nextUnlockPoints: 60,
+    nextUnlockPoints: null as number | null,
     nextUnlockName: 'Advanced Castle',
     cardBg: 'bg-gradient-to-br from-violet-50 to-purple-50',
     border: 'border-violet-200',
@@ -424,11 +424,8 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
 
   const totalScore = student?.total_score ?? 0;
 
-  const beginnerBest = bestScores.beginner?.points ?? 0;
-  const intermediateBest = bestScores.intermediate?.points ?? 0;
-
-  const intermediateUnlocked = beginnerBest >= 40;
-  const advancedUnlocked = intermediateBest >= 120;
+  const intermediateUnlocked = completedDifficulties.has('beginner');
+  const advancedUnlocked = completedDifficulties.has('intermediate');
 
   const isUnlocked = (diff: Difficulty) => {
     if (diff === 'beginner') return true;
@@ -1030,40 +1027,21 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
                 <div className={`mx-3 mb-3 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-3
                   ${locked ? 'bg-white/55' : 'bg-white/80'}`}>
                   {locked ? (
-                    <>
-                      <p className="text-sm text-gray-700 flex items-center gap-1.5 min-w-0">
-                        <Star className="w-4 h-4 text-amber-400 fill-amber-400 flex-shrink-0" />
-                        <span className="truncate">
-                          Complete {cfg.unlockFrom} and get at least {cfg.unlockNeed} points to unlock this level!
-                        </span>
-                      </p>
-                      <button
-                        disabled
-                        className="flex-shrink-0 bg-amber-100 text-amber-700 font-bold text-xs px-3 py-1.5 rounded-xl flex items-center gap-1"
-                      >
-                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                        Need {cfg.unlockNeed} points
-                      </button>
-                    </>
+                    <p className="text-sm text-gray-700 flex items-center gap-1.5 min-w-0">
+                      <Star className="w-4 h-4 text-amber-400 fill-amber-400 flex-shrink-0" />
+                      <span className="truncate">
+                        Complete all questions in {cfg.unlockFrom} to unlock this level!
+                      </span>
+                    </p>
                   ) : (
-                    <>
-                      <p className="text-sm text-gray-700 flex items-center gap-1.5 min-w-0">
-                        {completed
-                          ? <><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" /><span>Completed! Play again to beat your score.</span></>
-                          : cfg.nextUnlockPoints
-                            ? <><Star className="w-4 h-4 text-amber-400 fill-amber-400 flex-shrink-0" /><span>Get at least {cfg.nextUnlockPoints} points to unlock {cfg.nextUnlockName}!</span></>
-                            : <><Star className="w-4 h-4 text-amber-400 fill-amber-400 flex-shrink-0" /><span>Reach the top — become a Fraction Master!</span></>
-                        }
-                      </p>
-                      {cfg.nextUnlockPoints && !completed && (
-                        <button
-                          disabled
-                          className="flex-shrink-0 bg-green-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl"
-                        >
-                          You need {cfg.nextUnlockPoints} points
-                        </button>
-                      )}
-                    </>
+                    <p className="text-sm text-gray-700 flex items-center gap-1.5 min-w-0">
+                      {completed
+                        ? <><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" /><span>Completed! Play again to beat your score.</span></>
+                        : cfg.nextUnlockName
+                          ? <><Star className="w-4 h-4 text-amber-400 fill-amber-400 flex-shrink-0" /><span>Complete all questions to unlock {cfg.nextUnlockName}!</span></>
+                          : <><Star className="w-4 h-4 text-amber-400 fill-amber-400 flex-shrink-0" /><span>Reach the top — become a Fraction Master!</span></>
+                      }
+                    </p>
                   )}
                 </div>
               </div>
@@ -1071,17 +1049,14 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
               {/* ── Right: stats / CTA ── */}
               <div className="bg-white px-4 py-5 lg:w-48 flex-shrink-0 flex flex-col justify-between gap-3">
                 {locked ? (
-                  /* Unlocks-at panel */
+                  /* Unlocks-when panel */
                   <div className="text-center">
                     <div className="w-10 h-10 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-center mx-auto mb-2">
                       <Lock className="w-5 h-5 text-amber-500" />
                     </div>
-                    <p className={`font-bold text-sm ${cfg.titleColor}`}>Unlocks At</p>
-                    <p className="text-xs text-gray-400 mt-1">Need</p>
-                    <p className={`text-4xl font-extrabold leading-none my-1 ${cfg.titleColor}`}>{cfg.unlockNeed}</p>
-                    <p className="text-xs text-gray-400">points from</p>
-                    <p className="text-xs font-semibold text-gray-600 mt-0.5">{cfg.unlockFrom}</p>
-                    {/* Faded trophy watermark */}
+                    <p className={`font-bold text-sm ${cfg.titleColor}`}>Unlocks When</p>
+                    <p className="text-xs text-gray-400 mt-2">Complete all questions in</p>
+                    <p className="text-xs font-semibold text-gray-600 mt-1">{cfg.unlockFrom}</p>
                     <div className="mt-3 opacity-20 text-5xl text-center">🏆</div>
                   </div>
                 ) : (
