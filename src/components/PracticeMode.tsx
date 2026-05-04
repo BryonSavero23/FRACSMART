@@ -619,13 +619,57 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
         setSimplifyType('');
         celebrateCorrect();
 
-        const pts = calculatePoints(true);
-        setEarnedPoints(pts);
-        setShowPoints(true);
+        const simpCorrect: MisconceptionResult = { type: null, message: "Excellent work! That's correct!", tip: "" };
+        const newStreak = streak + 1;
+        const newMaxStreak = Math.max(maxStreak, newStreak);
+        const points = calculatePoints(true);
+        const newScore = scoreRef.current + points;
+        scoreRef.current = newScore;
 
-        setTimeout(() => {
-          setShowPoints(false);
-        }, 1200);
+        const answerRecord: AnswerRecord = {
+          question: currentQuestion,
+          studentAnswer: { numerator: simpAnswer.numerator, denominator: simpAnswer.denominator },
+          isCorrect: true,
+          misconception: simpCorrect,
+          questionNum,
+        };
+
+        const updatedAnswers = [...answers, answerRecord];
+        setAnswers(updatedAnswers);
+        setFeedback(simpCorrect);
+        setStreak(newStreak);
+        setMaxStreak(newMaxStreak);
+        setScore(newScore);
+        setGameState('feedback');
+
+        const sid = sessionIdRef.current;
+        if (sid) {
+          await supabase.from('session_answers').insert({
+            session_id: sid,
+            question_num: questionNum,
+            numerator1: currentQuestion.fraction1.numerator,
+            denominator1: currentQuestion.fraction1.denominator,
+            numerator2: currentQuestion.fraction2.numerator,
+            denominator2: currentQuestion.fraction2.denominator,
+            student_numerator: simpAnswer.numerator,
+            student_denominator: simpAnswer.denominator,
+            correct_numerator: correct.numerator,
+            correct_denominator: correct.denominator,
+            is_correct: true,
+            misconception_type: null,
+          });
+
+          await supabase
+            .from('sessions')
+            .update({
+              score: newScore,
+              questions_answered: questionNum,
+              correct_answers: updatedAnswers.filter(a => a.isCorrect).length,
+            })
+            .eq('id', sid);
+        }
+
+        return;
       }
 
       // Equivalent but not simplest
