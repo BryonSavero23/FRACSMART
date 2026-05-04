@@ -421,7 +421,7 @@ export function TestMode({ mode, onComplete, onBack }: TestModeProps) {
               {/* Input hint */}
               {!submitted && (
                 <p className="text-center text-gray-400 text-xs">
-                  e.g. whole number → Whole only &nbsp;|&nbsp; fraction → Num/Den only &nbsp;|&nbsp; mixed → all three
+                  {/* e.g. whole number → Whole only &nbsp;|&nbsp; fraction → Num/Den only &nbsp;|&nbsp; mixed → all three */}
                 </p>
               )}
 
@@ -447,11 +447,9 @@ export function TestMode({ mode, onComplete, onBack }: TestModeProps) {
               </div>
             )}
 
-            {submitted && (
+            {submitted && mode !== 'pre' && (
               <p className="text-center text-gray-400 text-xs mt-2 italic">
-                {mode === 'pre'
-                  ? 'No explanation is shown in pre-test. We are checking what you already know!'
-                  : 'Do your best! This will show how much you have improved.'}
+                Do your best! This will show how much you have improved.
               </p>
             )}
           </div>
