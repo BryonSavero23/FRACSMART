@@ -5,14 +5,8 @@ import { Fraction } from './Fraction';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
-const MISCONCEPTION_LABELS: Record<string, string> = {
-  adding_fractions: 'Additive Interference',
-  denominator_only: 'Denominator Only',
-  numerator_only: 'Numerator Only',
-  whole_number_bias: 'Whole Number Bias',
-  unsimplified: 'Simplification Confusion',
-  other: 'Other Errors',
-};
+import { MISCONCEPTION_LABELS } from '../lib/misconceptionTypes';
+import type { MisconceptionType } from '../lib/misconceptionTypes';
 
 interface QuestionData {
   display1_whole: number;
@@ -245,7 +239,7 @@ export function TestReview({ onBack }: TestReviewProps) {
                     )}
                     {!a.is_correct && a.misconception_type && (
                       <span className="text-xs text-gray-400">
-                        — {MISCONCEPTION_LABELS[a.misconception_type] ?? a.misconception_type}
+                        — {MISCONCEPTION_LABELS[a.misconception_type as NonNullable<MisconceptionType>] ?? a.misconception_type}
                       </span>
                     )}
                   </div>

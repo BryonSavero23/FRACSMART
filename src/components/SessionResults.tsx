@@ -4,6 +4,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { supabase, SessionAnswer } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Fraction } from './Fraction';
+import { MISCONCEPTION_LABELS, MISCONCEPTION_COLORS } from '../lib/misconceptionTypes';
+import type { MisconceptionType } from '../lib/misconceptionTypes';
 
 interface SessionResultsProps {
   sessionId: string;
@@ -11,24 +13,6 @@ interface SessionResultsProps {
   onContinue?: () => void;
   continueLabel?: string;
 }
-
-const misconceptionLabels: Record<string, string> = {
-  adding_fractions: 'Adding Instead\nof Multiplying',
-  whole_number_bias: 'Whole Number\nBias',
-  denominator_only: 'Only Multiplied\nDenominators',
-  numerator_only: 'Only Multiplied\nNumerators',
-  unsimplified: 'Forgot to\nSimplify',
-  other: 'Other Errors',
-};
-
-const misconceptionColors: Record<string, string> = {
-  adding_fractions: '#ef4444',
-  whole_number_bias: '#f97316',
-  denominator_only: '#eab308',
-  numerator_only: '#22c55e',
-  unsimplified: '#3b82f6',
-  other: '#8b5cf6',
-};
 
 export function SessionResults({ sessionId, onBack, onContinue, continueLabel = 'Continue to Post-Test' }: SessionResultsProps) {
   const { student } = useAuth();
@@ -79,10 +63,10 @@ export function SessionResults({ sessionId, onBack, onContinue, continueLabel = 
     });
 
     return Object.entries(counts).map(([type, count]) => ({
-      name: misconceptionLabels[type] || type,
+      name: MISCONCEPTION_LABELS[type as NonNullable<MisconceptionType>] ?? type,
       type,
       count,
-      color: misconceptionColors[type] || '#6b7280',
+      color: MISCONCEPTION_COLORS[type as NonNullable<MisconceptionType>] ?? '#6b7280',
     }));
   };
 
@@ -257,7 +241,7 @@ export function SessionResults({ sessionId, onBack, onContinue, continueLabel = 
               </div>
               {!answer.is_correct && answer.misconception_type && (
                 <p className="text-sm text-gray-500 mt-2">
-                  Error: {misconceptionLabels[answer.misconception_type]?.replace('\n', ' ')}
+                  Error: {MISCONCEPTION_LABELS[answer.misconception_type as NonNullable<MisconceptionType>] ?? answer.misconception_type}
                 </p>
               )}
             </div>

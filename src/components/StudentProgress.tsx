@@ -15,52 +15,8 @@ import {
 import { supabase, Session, SessionAnswer } from '../lib/supabase';
 import type { TestSession, TestAnswer } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import type { MisconceptionType } from '../lib/misconceptionDetection';
-
-const misconceptionLabels: Record<string, string> = {
-  adding_fractions: 'Additive Interference',
-  whole_number_bias: 'Whole Number Bias',
-  denominator_only: 'Denominator Multiplication Only',
-  numerator_only: 'Mixed Number Errors',
-  unsimplified: 'Simplification Confusion',
-  other: 'General Wrong Answer',
-};
-
-const misconceptionColors: Record<string, string> = {
-  adding_fractions: '#ef4444',
-  whole_number_bias: '#f97316',
-  denominator_only: '#eab308',
-  numerator_only: '#22c55e',
-  unsimplified: '#3b82f6',
-  other: '#8b5cf6',
-};
-
-const MISCONCEPTION_LABELS: Record<NonNullable<MisconceptionType>, string> = {
-  adding_fractions: 'Additive Interference',
-  partial_multiplication: 'Partial Multiplication',
-  mixed_number_error: 'Mixed Number Error',
-  whole_number_bias: 'Whole Number Bias',
-  unsimplified: 'Simplification Confusion',
-  other: 'Other Errors',
-};
-
-const MISCONCEPTION_COLORS: Record<NonNullable<MisconceptionType>, string> = {
-  adding_fractions: '#ef4444',
-  partial_multiplication: '#f97316',
-  mixed_number_error: '#eab308',
-  whole_number_bias: '#22c55e',
-  unsimplified: '#8b5cf6',
-  other: '#6b7280',
-};
-
-const MISCONCEPTION_ORDER: NonNullable<MisconceptionType>[] = [
-  'adding_fractions',
-  'partial_multiplication',
-  'mixed_number_error',
-  'whole_number_bias',
-  'unsimplified',
-  'other',
-];
+import type { MisconceptionType } from '../lib/misconceptionTypes';
+import { MISCONCEPTION_LABELS, MISCONCEPTION_COLORS, MISCONCEPTION_ORDER } from '../lib/misconceptionTypes';
 
 function formatTime(ms: number): string {
   const totalSec = Math.round(ms / 1000);
@@ -197,10 +153,10 @@ export function StudentProgress() {
     });
 
     return Object.entries(counts).map(([type, count]) => ({
-      name: misconceptionLabels[type] || type,
+      name: MISCONCEPTION_LABELS[type as NonNullable<MisconceptionType>] ?? type,
       type,
       count,
-      color: misconceptionColors[type] || '#6b7280',
+      color: MISCONCEPTION_COLORS[type as NonNullable<MisconceptionType>] ?? '#6b7280',
     }));
   };
 

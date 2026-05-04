@@ -1,11 +1,5 @@
-export type MisconceptionType =
-  | 'adding_fractions'
-  | 'whole_number_bias'
-  | 'partial_multiplication'
-  | 'mixed_number_error'
-  | 'unsimplified'
-  | 'other'
-  | null;
+import type { MisconceptionType } from './misconceptionTypes';
+export type { MisconceptionType } from './misconceptionTypes';
 
 export interface Fraction {
   numerator: number;
@@ -88,56 +82,77 @@ export function detectMisconception(
     };
   }
 
-  // Priority 3: partial_multiplication
-  // Numerator correct, denominator added: (a×c)/(b+d)
+  // Priority 3: partial multiplication — detect which half was done correctly
+  // Numerators multiplied, denominators added: (a×c)/(b+d)
   if (
     student.numerator === f1.numerator * f2.numerator &&
     student.denominator === f1.denominator + f2.denominator
   ) {
     return {
-      type: 'partial_multiplication',
-      message: "You only multiplied part of the fraction.",
-      tip: "Multiply both the top and the bottom numbers.",
+      type: 'numerator_only',
+      message: "You multiplied the top numbers but added the bottom numbers.",
+      tip: "Multiply both the top and bottom numbers.",
     };
   }
-  // Denominator correct, numerator added: (a+c)/(b×d)
+  // Denominators multiplied, numerators added: (a+c)/(b×d)
   if (
     student.numerator === f1.numerator + f2.numerator &&
     student.denominator === f1.denominator * f2.denominator
   ) {
     return {
-      type: 'partial_multiplication',
-      message: "You only multiplied part of the fraction.",
-      tip: "Multiply both the top and the bottom numbers.",
+      type: 'denominator_only',
+      message: "You multiplied the bottom numbers but added the top numbers.",
+      tip: "Multiply both the top and bottom numbers.",
     };
   }
 
-  // Priority 4: mixed_number_error — wrong conversion of an improper fraction
-  // Detects: student used (whole × denom) as numerator instead of (whole × denom + frac_num)
-  // e.g. 1½ = 3/2 wrongly converted to 2/2
-  const hasImproper = f1.numerator > f1.denominator || f2.numerator > f2.denominator;
-  if (hasImproper) {
-    const wrongF1 = f1.numerator > f1.denominator
-      ? { numerator: Math.floor(f1.numerator / f1.denominator) * f1.denominator, denominator: f1.denominator }
-      : f1;
-    const wrongF2 = f2.numerator > f2.denominator
-      ? { numerator: Math.floor(f2.numerator / f2.denominator) * f2.denominator, denominator: f2.denominator }
-      : f2;
+  // Priority 4: mixed_number_error — a fraction with numerator > denominator is a mixed number
+  // (e.g. 4/3 = 1⅓). Detect three patterns of wrong handling:
+  //   A. Used only the fractional part:     4/3 → 1/3
+  //   B. Used only the whole number part:   4/3 → 1  (i.e. 1/1)
+  //   C. Wrong conversion formula:          4/3 → 3/3  (whole×denom instead of whole×denom+num)
+  const isMixed1 = f1.numerator > f1.denominator;
+  const isMixed2 = f2.numerator > f2.denominator;
 
-    // Also check if student just used the whole number (integer part) as the fraction
-    const wholeF1 = f1.numerator > f1.denominator
+  if (isMixed1 || isMixed2) {
+    const candidates: Fraction[] = [];
+
+    // Pattern A: only the fractional part used  (n % d) / d
+    const fracF1: Fraction = isMixed1
+      ? { numerator: f1.numerator % f1.denominator, denominator: f1.denominator }
+      : f1;
+    const fracF2: Fraction = isMixed2
+      ? { numerator: f2.numerator % f2.denominator, denominator: f2.denominator }
+      : f2;
+    if (isMixed1 && fracF1.numerator > 0)
+      candidates.push({ numerator: fracF1.numerator * f2.numerator, denominator: fracF1.denominator * f2.denominator });
+    if (isMixed2 && fracF2.numerator > 0)
+      candidates.push({ numerator: f1.numerator * fracF2.numerator, denominator: f1.denominator * fracF2.denominator });
+
+    // Pattern B: only the whole number part used  floor(n/d) / 1
+    const wholeF1: Fraction = isMixed1
       ? { numerator: Math.floor(f1.numerator / f1.denominator), denominator: 1 }
       : f1;
-    const wholeF2 = f2.numerator > f2.denominator
+    const wholeF2: Fraction = isMixed2
       ? { numerator: Math.floor(f2.numerator / f2.denominator), denominator: 1 }
       : f2;
+    if (isMixed1)
+      candidates.push({ numerator: wholeF1.numerator * f2.numerator, denominator: wholeF1.denominator * f2.denominator });
+    if (isMixed2)
+      candidates.push({ numerator: f1.numerator * wholeF2.numerator, denominator: f1.denominator * wholeF2.denominator });
 
-    const candidates = [
-      { numerator: wrongF1.numerator * f2.numerator, denominator: wrongF1.denominator * f2.denominator },
-      { numerator: f1.numerator * wrongF2.numerator, denominator: f1.denominator * wrongF2.denominator },
-      { numerator: wholeF1.numerator * f2.numerator, denominator: wholeF1.denominator * f2.denominator },
-      { numerator: f1.numerator * wholeF2.numerator, denominator: f1.denominator * wholeF2.denominator },
-    ];
+    // Pattern C: wrong conversion — (whole × denom) / denom, missing the fractional numerator
+    // e.g. 1½ = 3/2 converted as (1×2)/2 = 2/2 instead of (1×2+1)/2 = 3/2
+    const wrongF1: Fraction = isMixed1
+      ? { numerator: Math.floor(f1.numerator / f1.denominator) * f1.denominator, denominator: f1.denominator }
+      : f1;
+    const wrongF2: Fraction = isMixed2
+      ? { numerator: Math.floor(f2.numerator / f2.denominator) * f2.denominator, denominator: f2.denominator }
+      : f2;
+    if (isMixed1)
+      candidates.push({ numerator: wrongF1.numerator * f2.numerator, denominator: wrongF1.denominator * f2.denominator });
+    if (isMixed2)
+      candidates.push({ numerator: f1.numerator * wrongF2.numerator, denominator: f1.denominator * wrongF2.denominator });
 
     if (candidates.some(c => areEqual(student, c))) {
       return {

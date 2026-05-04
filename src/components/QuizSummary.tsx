@@ -12,39 +12,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { StepProgressBar } from './StepProgressBar';
 import { supabase } from '../lib/supabase';
 import type { TestSession, TestAnswer } from '../lib/supabase';
-import type { MisconceptionType } from '../lib/misconceptionDetection';
+import type { MisconceptionType } from '../lib/misconceptionTypes';
+import { MISCONCEPTION_LABELS, MISCONCEPTION_COLORS, MISCONCEPTION_ORDER } from '../lib/misconceptionTypes';
 
 interface QuizSummaryProps {
   onReviewAnswers: () => void;
   onBack: () => void;
 }
-
-const MISCONCEPTION_LABELS: Record<NonNullable<MisconceptionType>, string> = {
-  adding_fractions: 'Additive Interference',
-  partial_multiplication: 'Partial Multiplication',
-  mixed_number_error: 'Mixed Number Error',
-  whole_number_bias: 'Whole Number Bias',
-  unsimplified: 'Simplification Confusion',
-  other: 'Other Errors',
-};
-
-const MISCONCEPTION_COLORS: Record<NonNullable<MisconceptionType>, string> = {
-  adding_fractions: '#ef4444',
-  partial_multiplication: '#f97316',
-  mixed_number_error: '#eab308',
-  whole_number_bias: '#22c55e',
-  unsimplified: '#8b5cf6',
-  other: '#6b7280',
-};
-
-const MISCONCEPTION_ORDER: NonNullable<MisconceptionType>[] = [
-  'adding_fractions',
-  'partial_multiplication',
-  'mixed_number_error',
-  'whole_number_bias',
-  'unsimplified',
-  'other',
-];
 
 function formatTime(ms: number): string {
   const totalSec = Math.round(ms / 1000);

@@ -8,21 +8,12 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { MockStudent } from '../data/mockTeacherData';
 import { supabase } from '../lib/supabase';
+import type { MisconceptionType } from '../lib/misconceptionTypes';
+import { MISCONCEPTION_LABELS, MISCONCEPTION_TYPES_LIST } from '../lib/misconceptionTypes';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 type Tab = 'overview' | 'heatmap';
-
-const MISCONCEPTION_TYPES = [
-  { key: 'adding_fractions', label: 'Additive Interference', short: 'Additive', color: '#ef4444' },
-  { key: 'denominator_only', label: 'Denominator Only', short: 'Denom.', color: '#f97316' },
-  { key: 'numerator_only', label: 'Numerator Only', short: 'Numer.', color: '#eab308' },
-  { key: 'whole_number_bias', label: 'Whole Number Bias', short: 'Whole #', color: '#22c55e' },
-  { key: 'unsimplified', label: 'Simplification Confusion', short: 'Simplify', color: '#8b5cf6' },
-  { key: 'other', label: 'Other Errors', short: 'Other', color: '#6b7280' },
-] as const;
-
-type MisconceptionKey = typeof MISCONCEPTION_TYPES[number]['key'];
 
 function getStatus(pre: number, post: number): MockStudent['status'] {
   if (pre === 0 && post === 0) return 'Not Started';
@@ -31,16 +22,10 @@ function getStatus(pre: number, post: number): MockStudent['status'] {
 }
 
 function getTopMisconception(counts: MockStudent['misconceptionCounts']): string {
-  const labels: Record<string, string> = {
-    adding_fractions: 'Additive Interference',
-    denominator_only: 'Denominator Only',
-    numerator_only: 'Numerator Only',
-    whole_number_bias: 'Whole Number Bias',
-    unsimplified: 'Simplification Confusion',
-    other: 'Other',
-  };
   const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-  return top && top[1] > 0 ? labels[top[0]] : '—';
+  return top && top[1] > 0
+    ? (MISCONCEPTION_LABELS[top[0] as NonNullable<MisconceptionType>] ?? top[0])
+    : '—';
 }
 
 // ─── CSV export ──────────────────────────────────────────────────────────────
@@ -48,14 +33,16 @@ function getTopMisconception(counts: MockStudent['misconceptionCounts']): string
 function downloadCSV(students: MockStudent[]) {
   const headers = [
     'Name', 'Class', 'Pre-Test Score', 'Post-Test Score', 'Improvement',
-    'Top Misconception', 'Status', 'Additive Interference', 'Denominator Only',
-    'Numerator Only', 'Whole Number Bias', 'Simplification Confusion', 'Other',
+    'Top Misconception', 'Status', 'Additive Interference', 'Whole Number Bias',
+    'Only Multiplied Denominators', 'Only Multiplied Numerators', 'Mixed Number Error',
+    'Simplification Confusion', 'Other Errors',
   ];
   const rows = students.map(s => [
     s.name, s.classCode, s.preScore, s.postScore,
     s.postScore - s.preScore, s.topMisconception, s.status,
-    s.misconceptionCounts.adding_fractions, s.misconceptionCounts.denominator_only,
-    s.misconceptionCounts.numerator_only, s.misconceptionCounts.whole_number_bias,
+    s.misconceptionCounts.adding_fractions, s.misconceptionCounts.whole_number_bias,
+    s.misconceptionCounts.denominator_only, s.misconceptionCounts.numerator_only,
+    s.misconceptionCounts.mixed_number_error,
     s.misconceptionCounts.unsimplified, s.misconceptionCounts.other,
   ]);
   const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
@@ -259,8 +246,8 @@ function StudentPanel({ student, note, onNoteChange, onClose }: StudentPanelProp
                 Misconception Breakdown
               </h4>
               <div className="space-y-2.5 mb-6">
-                {MISCONCEPTION_TYPES.map(mt => {
-                  const count = student.misconceptionCounts[mt.key as MisconceptionKey];
+                {MISCONCEPTION_TYPES_LIST.map(mt => {
+                  const count = student.misconceptionCounts[mt.key];
                   return (
                     <div key={mt.key} className="flex items-center gap-3">
                       <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: mt.color }} />
@@ -427,7 +414,7 @@ function HeatmapTab({ students }: { students: MockStudent[] }) {
           {/* Column headers */}
           <div className="flex gap-1 mb-1">
             <div className="w-44 flex-shrink-0" />
-            {MISCONCEPTION_TYPES.map(mt => (
+            {MISCONCEPTION_TYPES_LIST.map(mt => (
               <div key={mt.key} className="w-24 flex-shrink-0 text-center">
                 <span className="text-xs font-bold" style={{ color: mt.color }}>{mt.short}</span>
               </div>
@@ -440,8 +427,8 @@ function HeatmapTab({ students }: { students: MockStudent[] }) {
               <div className="w-44 flex-shrink-0 pr-3">
                 <span className="text-xs font-semibold text-gray-700 truncate block">{s.name}</span>
               </div>
-              {MISCONCEPTION_TYPES.map(mt => {
-                const count = s.misconceptionCounts[mt.key as MisconceptionKey];
+              {MISCONCEPTION_TYPES_LIST.map(mt => {
+                const count = s.misconceptionCounts[mt.key];
                 return (
                   <div
                     key={mt.key}
@@ -547,9 +534,10 @@ export function TeacherDashboard() {
 
         const misconceptionCounts: MockStudent['misconceptionCounts'] = {
           adding_fractions: 0,
+          whole_number_bias: 0,
           denominator_only: 0,
           numerator_only: 0,
-          whole_number_bias: 0,
+          mixed_number_error: 0,
           unsimplified: 0,
           other: 0,
         };
