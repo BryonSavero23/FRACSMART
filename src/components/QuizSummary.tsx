@@ -21,8 +21,8 @@ interface QuizSummaryProps {
 
 const MISCONCEPTION_LABELS: Record<NonNullable<MisconceptionType>, string> = {
   adding_fractions: 'Additive Interference',
-  denominator_only: 'Denominator Only',
-  numerator_only: 'Numerator Only',
+  partial_multiplication: 'Partial Multiplication',
+  mixed_number_error: 'Mixed Number Error',
   whole_number_bias: 'Whole Number Bias',
   unsimplified: 'Simplification Confusion',
   other: 'Other Errors',
@@ -30,8 +30,8 @@ const MISCONCEPTION_LABELS: Record<NonNullable<MisconceptionType>, string> = {
 
 const MISCONCEPTION_COLORS: Record<NonNullable<MisconceptionType>, string> = {
   adding_fractions: '#ef4444',
-  denominator_only: '#f97316',
-  numerator_only: '#eab308',
+  partial_multiplication: '#f97316',
+  mixed_number_error: '#eab308',
   whole_number_bias: '#22c55e',
   unsimplified: '#8b5cf6',
   other: '#6b7280',
@@ -39,8 +39,8 @@ const MISCONCEPTION_COLORS: Record<NonNullable<MisconceptionType>, string> = {
 
 const MISCONCEPTION_ORDER: NonNullable<MisconceptionType>[] = [
   'adding_fractions',
-  'denominator_only',
-  'numerator_only',
+  'partial_multiplication',
+  'mixed_number_error',
   'whole_number_bias',
   'unsimplified',
   'other',
@@ -412,7 +412,7 @@ export function QuizSummary({ onReviewAnswers, onBack }: QuizSummaryProps) {
                       <XAxis dataKey="name" tick={{ fontSize: 12, fontWeight: 600 }} />
                       <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} unit="%" />
                       <Tooltip
-                        formatter={(value: number) => [`${value}%`, 'Score']}
+                        formatter={(value) => [`${value}%`, 'Score']}
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                       />
                       <Bar dataKey="score" radius={[6, 6, 0, 0]}>
