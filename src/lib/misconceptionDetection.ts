@@ -49,7 +49,7 @@ export function detectMisconception(
 ): MisconceptionResult {
   if (!studentAnswer || !studentAnswer.numerator || !studentAnswer.denominator) {
     return {
-      type: null,
+      type: 'other',
       message: "Let's try again! Remember to fill in both the top and bottom numbers.",
       tip: "A fraction needs both a numerator (top) and denominator (bottom).",
     };
@@ -58,19 +58,12 @@ export function detectMisconception(
   const { fraction1: f1, fraction2: f2, correctAnswer } = question;
   const student = studentAnswer;
 
-  // Priority 1: unsimplified — equivalent to correct but not in lowest form
+  // Priority 1: correct answer
   if (areEqual(student, correctAnswer)) {
-    if (gcd(student.numerator, student.denominator) === 1) {
-      return { type: null, message: "Excellent work! That's correct!", tip: "" };
-    }
-    return {
-      type: 'unsimplified',
-      message: "Your answer is correct but not simplified.",
-      tip: "Simplify your fraction to the smallest form.",
-    };
+    return { type: null, message: "Excellent work! That's correct!", tip: "" };
   }
 
-  // Priority 2: adding_fractions — (a+c)/(b+d)
+  // Priority 2: adding_fractions — (a+c)/(b+d) naive pattern OR proper common-denominator sum
   if (
     student.numerator === f1.numerator + f2.numerator &&
     student.denominator === f1.denominator + f2.denominator
@@ -78,6 +71,17 @@ export function detectMisconception(
     return {
       type: 'adding_fractions',
       message: "You added the numbers instead of multiplying them.",
+      tip: "Multiply the top numbers and the bottom numbers, not add.",
+    };
+  }
+  const properSum: Fraction = {
+    numerator: f1.numerator * f2.denominator + f2.numerator * f1.denominator,
+    denominator: f1.denominator * f2.denominator,
+  };
+  if (areEqual(student, properSum)) {
+    return {
+      type: 'adding_fractions',
+      message: "You added the fractions instead of multiplying them.",
       tip: "Multiply the top numbers and the bottom numbers, not add.",
     };
   }

@@ -448,9 +448,9 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
       setQuestionNum(existing.questions_answered + 1);
       setGameState('playing');
       if (diff === 'beginner') {
-        setCurrentQuestion(BEGINNER_QUESTIONS[0]);
+        setCurrentQuestion(BEGINNER_QUESTIONS[existing.questions_answered]);
       } else if (diff === 'intermediate') {
-        setCurrentQuestion(INTERMEDIATE_QUESTIONS[0]);
+        setCurrentQuestion(INTERMEDIATE_QUESTIONS[existing.questions_answered]);
       } else {
         const qIdx = Math.min(existing.questions_answered, ADVANCED_QUESTIONS_DATA.length - 1);
         setAdvQuestion(ADVANCED_QUESTIONS_DATA[qIdx]);
@@ -653,7 +653,7 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
             correct_numerator: correct.numerator,
             correct_denominator: correct.denominator,
             is_correct: true,
-            misconception_type: null,
+            misconception_type: 'unsimplified',
           });
 
           await supabase
@@ -768,6 +768,9 @@ export function PracticeMode({ onComplete }: PracticeModeProps) {
     const newScore = scoreRef.current + pts;
     scoreRef.current = newScore;
     setScore(newScore);
+    const newStreak = streak + 1;
+    setStreak(newStreak);
+    setMaxStreak(prev => Math.max(prev, newStreak));
     setAdvAllDone(true);
     const sid = sessionIdRef.current;
     if (sid) {

@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { GraduationCap, Calculator, Rocket, BookOpen, Target, Trophy, Gift } from 'lucide-react';
 
 interface LoginProps {
-  onLogin: () => void;
+  onLogin: (isNewStudent: boolean) => void;
 }
 
 /* ── Floating fraction tile ─────────────────────────────── */
@@ -64,7 +64,7 @@ export function Login({ onLogin }: LoginProps) {
     if (!classCode.trim()) { setError('Please enter your class code'); setIsLoading(false); return; }
     const result = await loginStudent(name, classCode);
     setIsLoading(false);
-    if (result.success) onLogin();
+    if (result.success) onLogin(!!result.isNewStudent);
     else setError(result.error || 'Something went wrong');
   };
 
@@ -75,7 +75,7 @@ export function Login({ onLogin }: LoginProps) {
     if (!username.trim() || !password.trim()) { setError('Please enter both username and password'); setIsLoading(false); return; }
     const result = await loginTeacher(username, password);
     setIsLoading(false);
-    if (result.success) onLogin();
+    if (result.success) onLogin(false);
     else setError(result.error || 'Something went wrong');
   };
 
