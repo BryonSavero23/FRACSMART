@@ -5,7 +5,7 @@ interface AuthContextType {
   student: Student | null;
   teacher: Teacher | null;
   isLoading: boolean;
-  loginStudent: (name: string, classCode: string) => Promise<{ success: boolean; error?: string }>;
+  loginStudent: (name: string, classCode: string) => Promise<{ success: boolean; isNewStudent?: boolean; error?: string }>;
   loginTeacher: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   updateStudentScore: (points: number) => Promise<void>;
@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   };
 
-  const loginStudent = async (name: string, classCode: string): Promise<{ success: boolean; error?: string }> => {
+  const loginStudent = async (name: string, classCode: string): Promise<{ success: boolean; isNewStudent?: boolean; error?: string }> => {
     const { data: classCodeData, error: classCodeError } = await supabase
       .from('class_codes')
       .select('code')
@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (existingStudent) {
       setStudent(existingStudent);
       localStorage.setItem('fracsmart_student_id', existingStudent.id);
-      return { success: true };
+      return { success: true, isNewStudent: false };
     }
 
     const { data: newStudent, error: insertError } = await supabase
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setStudent(newStudent);
     localStorage.setItem('fracsmart_student_id', newStudent.id);
-    return { success: true };
+    return { success: true, isNewStudent: true };
   };
 
   const loginTeacher = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {

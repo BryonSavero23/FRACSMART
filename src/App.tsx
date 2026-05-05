@@ -13,7 +13,6 @@ import { QuizSummary } from './components/QuizSummary';
 import { TestReview } from './components/TestReview';
 import { supabase } from './lib/supabase';
 
-const PRETEST_KEY = (id: string) => `fracsmart_pretest_${id}`;
 const ALL_PRACTICE_KEY = (id: string) => `fracsmart_allpractice_${id}`;
 
 function AppContent() {
@@ -26,11 +25,6 @@ function AppContent() {
 
   useEffect(() => {
     if (!student) return;
-    const pretestDone = localStorage.getItem(PRETEST_KEY(student.id));
-    if (!pretestDone) {
-      setCurrentPage('pretest');
-      return;
-    }
     const allPractice = localStorage.getItem(ALL_PRACTICE_KEY(student.id));
     if (allPractice) {
       setAllPracticeComplete(true);
@@ -66,7 +60,7 @@ function AppContent() {
   }
 
   if (!student && !teacher) {
-    return <Login onLogin={() => setCurrentPage('home')} />;
+    return <Login onLogin={(isNewStudent) => setCurrentPage(isNewStudent ? 'pretest' : 'home')} />;
   }
 
   if (teacher) {
@@ -93,10 +87,6 @@ function AppContent() {
     if (completedDifficulty === 'beginner') return { label: 'Continue to Intermediate', dest: 'practice' };
     if (completedDifficulty === 'intermediate') return { label: 'Continue to Advanced', dest: 'practice' };
     return { label: 'Continue to Post-Test', dest: 'posttest' };
-  };
-
-  const markPreTestDone = () => {
-    if (student) localStorage.setItem(PRETEST_KEY(student.id), 'done');
   };
 
   const isQuizPage = ['pretest', 'posttest', 'quiz-summary', 'test-review'].includes(currentPage);
@@ -134,7 +124,7 @@ function AppContent() {
         return (
           <TestMode
             mode="pre"
-            onComplete={() => { markPreTestDone(); navigateTo('learn'); }}
+            onComplete={() => navigateTo('learn')}
             onBack={() => navigateTo('home')}
           />
         );

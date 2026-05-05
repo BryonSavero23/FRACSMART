@@ -272,7 +272,7 @@ export function Login({ onLogin }: LoginProps) {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter your name"
+                    placeholder="Enter your Full Name"
                     className="w-full px-4 py-3.5 pr-12 rounded-2xl border-2 border-gray-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 outline-none text-base transition-all bg-gray-50 focus:bg-white"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 text-xl pointer-events-none">😊</span>
@@ -289,7 +289,7 @@ export function Login({ onLogin }: LoginProps) {
                     type="text"
                     value={classCode}
                     onChange={(e) => setClassCode(e.target.value.toUpperCase())}
-                    placeholder="E.g., MATH5A"
+                    placeholder="E.g., MATH5K"
                     className="w-full px-4 py-3.5 pr-12 rounded-2xl border-2 border-gray-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 outline-none text-base transition-all bg-gray-50 focus:bg-white uppercase tracking-widest"
                     maxLength={10}
                   />
